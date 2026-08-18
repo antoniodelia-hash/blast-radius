@@ -25,7 +25,9 @@ the two name-instead-of-id cases above.
 ## What it cost
 
 The mechanism the whole system exists for — a person asks, the system
-decides, the person is told — was broken for 22 of 29 requests, silently.
+decides, the person is told — was broken for **25 of 29** requests,
+silently: 22 rows carried no identifier at all, and 3 carried a display
+name where the platform needs an account id.
 No money moved. What eroded was the reason anyone would keep using it.
 
 ## The control

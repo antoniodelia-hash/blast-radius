@@ -66,14 +66,18 @@ that.
 
 ## OWASP mapping
 
-**ASI03: Identity and Privilege Abuse — partial.**
+**ASI02: Tool Misuse and Exploitation — partial.**
 
-ASI03's mitigations call for "Mandate Per-Action Authorization" (p.17),
-re-verifying each privileged step against a central policy rather than
-trusting the caller's path. Putting the rule in the database is the same
-instinct applied one layer lower: the authority sits beside the data, so
-every path meets it.
+The agent held the shell legitimately and used it in a way the design did
+not anticipate, which is where ASI02 sits: unsafe use of privileges the
+agent already has. ASI03 covers the identity and delegation problem, and
+nothing here was impersonated or inherited.
 
-The entry frames this as defence against privilege abuse by an adversary.
-Here the caller was the system's own agent, solving a problem the way it
-had been taught to.
+The remedy has a name in ASI03's mitigations — "Mandate Per-Action
+Authorization" (p.17), re-verifying each privileged step against a central
+policy instead of trusting the caller's path — and putting the rule in the
+database applies that instinct one layer lower, where every path meets it.
+
+The entry frames tool misuse as something an attacker induces. Here the
+caller was the system's own agent, solving a problem the way it had been
+taught to.

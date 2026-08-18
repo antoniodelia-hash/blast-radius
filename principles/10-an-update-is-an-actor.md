@@ -70,7 +70,7 @@ the readable-size limit.
 
 ## OWASP mapping
 
-**ASI04: Agentic Supply Chain Vulnerabilities — full, on the surface.**
+**ASI04: Agentic Supply Chain Vulnerabilities — partial.**
 
 ASI04 lists "or update channels" among the components that carry risk
 (p.18), and notes that "agentic ecosystems often compose capabilities at
@@ -78,8 +78,10 @@ runtime" (p.18). The channel is exactly the one that failed here, and the
 runtime composition is exactly the mechanism: capabilities appeared in a
 running system without a decision.
 
-What the entry expects at the far end of that channel is a malicious or
-tampered artefact. Here the artefacts were legitimate, vendor-signed, and
-useless in context — one of them large enough to blind the agent that
-loaded it. The channel is the same; the malice is absent, and the effect
-arrived anyway.
+The verdict stays partial for a reason worth stating: ASI04 opens by
+requiring components that "may be malicious, compromised, or tampered
+with in transit" (p.18). Here the artefacts were legitimate and
+vendor-signed, one of them merely large enough to blind the agent that
+loaded it. The channel is the one the entry describes; the hostile
+artefact it presupposes never appears, so calling the mapping full would
+claim more than the text supports.
