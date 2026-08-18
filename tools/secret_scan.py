@@ -268,7 +268,20 @@ def main():
         return 2
 
     if args.staged:
-        files = collect_files(staged_files())
+        staged = staged_files()
+        if not staged:
+            # Zero examined is a fault when scanning a tree, and an honest
+            # outcome when nothing is staged: a message-only commit has no
+            # content to scan. Telling the two apart needs to know what was
+            # about to be examined, which is why the branch lives here and
+            # not in the exit code.
+            print("%-22s examined=0 rules=- problems=0  (nothing staged)" % "secret-scan")
+            return 0
+        files = collect_files(staged)
+        if not files:
+            print("%-22s examined=0 problems=0  (%d staged files, none of them text)"
+                  % ("secret-scan", len(staged)))
+            return 0
     else:
         files = collect_files(args.paths or [repo_root])
 
