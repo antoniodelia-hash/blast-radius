@@ -1,0 +1,57 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  controls:
+    # The controls are plain standard-library Python on purpose: someone who
+    # wants one copies the file. The matrix is what keeps that claim honest.
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: every check can fail
+        run: python3 controls/tests/test_contract.py
+      - name: mapping counters describe the table
+        run: python3 tools/mapping_check.py
+
+  imports:
+    # Deliberately one modern Python rather than the matrix: the inventory of
+    # standard-library module names arrived in 3.10, and on 3.9 this check
+    # would inspect every file, verify nothing, and report zero problems.
+    # A check that cannot fail on one row of a matrix is worse than one row
+    # fewer.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: no third-party imports
+        run: python3 tools/import_check.py
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the whole history: a secret removed in the next
+                           # commit is still in the history for good
+      - name: gitleaks over the full history
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: the client denylist scanner can still fail
+        # The real denylist holds the strings this repository must never
+        # name, so it lives outside the repository and cannot run here.
+        # CI proves the scanner works; the pre-commit hook is what guards
+        # those terms, on the machine where they exist.
+        run: python3 tools/secret_scan.py --fixture || test $? -eq 1

@@ -1,0 +1,57 @@
+#!/bin/sh
+# Every check in this repository, in one place, so that "it passes locally"
+# and "it passes in CI" run the same commands. A CI script that drifts from
+# what a human runs is two checks, one of which is never exercised.
+#
+# Usage:
+#   tools/run_all_checks.sh                  # everything runnable without the source PDF
+#   tools/run_all_checks.sh path/to/owasp.txt  # also verify every quotation
+set -e
+root=$(cd "$(dirname "$0")/.." && pwd)
+source_text="$1"
+failed=0
+
+run() {
+    name="$1"; shift
+    printf '\n=== %s\n' "$name"
+    if "$@"; then
+        :
+    else
+        status=$?
+        echo "FAILED ($name, exit $status)"
+        failed=1
+    fi
+}
+
+# Every check must be able to fail. This one finds new checks by itself, so
+# a control added without a fixture is caught without editing this file.
+run "every check can fail" python3 "$root/controls/tests/test_contract.py"
+
+# The counters at the top of MAPPING.md must describe the table below it.
+run "mapping counters" python3 "$root/tools/mapping_check.py"
+
+# Standard-library-only. Exit 2 here means this Python cannot answer the
+# question (the module inventory arrived in 3.10), which is reported as
+# skipped rather than passed: the two must never look alike.
+printf '\n=== standard library only\n'
+python3 "$root/tools/import_check.py" || status=$?
+if [ "${status:-0}" = "2" ]; then
+    echo "skipped: run this on Python 3.10 or newer, or let CI do it"
+elif [ "${status:-0}" != "0" ]; then
+    echo "FAILED (standard library only, exit ${status})"
+    failed=1
+fi
+unset status
+
+if [ -n "$source_text" ]; then
+    run "quotations against the source" \
+        python3 "$root/tools/citation_check.py" "$source_text"
+else
+    echo "\n=== quotations against the source"
+    echo "skipped: no source text given. The OWASP PDF is not redistributed"
+    echo "here, so this check runs where the extracted text is available:"
+    echo "  pdftotext -layout owasp-agentic-2026.pdf owasp.txt"
+    echo "  tools/run_all_checks.sh owasp.txt"
+fi
+
+exit $failed
