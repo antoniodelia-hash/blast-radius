@@ -84,7 +84,13 @@ points at T8 Repudiation & Untraceability as the underlying weakness.
 That is precisely what happened: a fluent sentence stood in for an act,
 and nothing downstream could tell the two apart.
 
-The mapping is partial because ASI09 is written around an adversary who
-exploits that trust. Here there was no adversary. The gap is worth
-stating plainly: a taxonomy of attacks covers this failure only sideways,
-and the failure still cost EUR 6,272.
+The mapping is partial for a narrower reason than "no attacker was
+involved". ASI09 covers "adversaries **or misaligned designs**" and its
+fourth scenario opens with "regardless of root cause (hijack, poisoning,
+or hallucination)" (p.34), so a failure with nobody behind it sits inside
+its scope. What the entry then follows is exploitation: an adversary
+converting misplaced trust into a harmful action.
+
+Here the mechanism matched and the exploitation never came. A sentence
+stood in for an act, nothing downstream could tell the two apart, and the
+gap cost EUR 6,272 on its own.
