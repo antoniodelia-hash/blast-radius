@@ -17,8 +17,7 @@ page it sits on. `tools/citation_check.py` re-runs that check.
 
 ## Where our incidents land
 
-Card files are named after these numbers. Cards 02, 03 and 12 are
-written; the rest arrive in the order of the list.
+Card files are named after these numbers. All twelve are written.
 
 | # | Principle | ASI | Verdict | Adversary | Quotation holding the verdict |
 |---|---|---|---|---|---|
