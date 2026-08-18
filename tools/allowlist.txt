@@ -1,0 +1,20 @@
+# Approved exceptions to the client denylist.
+#
+# The marker `scan:allow` on a line asks for an exception; this register
+# grants it. Without an entry here the marker does nothing, because the
+# marker alone used to silence the scanner on any line at all -- including
+# one naming the client, verified.
+#
+# Each entry: <digest of the line>  <path>  <reason>
+# The digest binds the exception to the exact text reviewed. Edit the line
+# and the exception lapses.
+#
+fb284a8e40889e78 controls/budget_brake.py byte-size threshold that matches the job-number pattern
+54cd8c4842e40429 controls/budget_brake.py byte-size threshold that matches the job-number pattern
+30acfafad3ecbe01 tools/secret_scan.py documentation of the marker itself
+0f094d4dc3a497ce tools/secret_scan.py planted bait in a fixture, not a real secret
+537395bef5d24d8f tools/secret_scan.py planted bait in a fixture, not a real secret
+1db75eabc20a8e9f tools/secret_scan.py planted bait in a fixture, not a real secret
+b262d81627a333a5 tools/secret_scan.py planted bait in a fixture, not a real secret
+ba5f595444849da7 tools/secret_scan.py documentation of the marker itself
+abf3d347ccf0c4b1 ANONYMIZATION.md documentation of the marker itself

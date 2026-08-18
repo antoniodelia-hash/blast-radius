@@ -23,6 +23,11 @@ import json
 import re
 import sys
 
+# A fixture that behaved as designed exits with this, and nothing else
+# does. Exit 1 is what a crashing program returns too, and the contract
+# test used to read a traceback as proof that the check works.
+FIXTURE_FOUND_ITS_FAULT = 86
+
 # Phrasings that describe an act the system is expected to perform. Kept
 # deliberately narrow: a broad matcher turns every polite sentence into an
 # alert, and an alert stream nobody reads is the failure this check is for.
@@ -130,8 +135,8 @@ def run_fixture():
         print("\nfixture did not behave as declared: the audit cannot be trusted")
         return 3
     print("\nthree empty promises caught, the kept one and the plain turn stayed quiet;")
-    print("exiting 1 on purpose, because a check that cannot fail is not a check")
-    return 1
+    print("exiting 86: the code that means the fixture found the fault it planted")
+    return FIXTURE_FOUND_ITS_FAULT
 
 
 def main():

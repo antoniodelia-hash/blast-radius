@@ -23,6 +23,11 @@ import os
 import sys
 import tempfile
 
+# A fixture that behaved as designed exits with this, and nothing else
+# does. Exit 1 is what a crashing program returns too, and the contract
+# test used to read a traceback as proof that the check works.
+FIXTURE_FOUND_ITS_FAULT = 86
+
 FOLDERS = ("controls", "tools")
 
 
@@ -99,8 +104,8 @@ def run_fixture():
     if not conforms:
         print("\nfixture did not behave as declared: the check cannot be trusted")
         return 3
-    print("\nexiting 1 on purpose, because a check that cannot fail is not a check")
-    return 1
+    print("\nexiting 86: the code that means the fixture found the fault it planted")
+    return FIXTURE_FOUND_ITS_FAULT
 
 
 def main():

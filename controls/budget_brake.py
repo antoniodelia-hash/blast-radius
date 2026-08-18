@@ -30,6 +30,11 @@ import argparse
 import json
 import sys
 
+# A fixture that behaved as designed exits with this, and nothing else
+# does. Exit 1 is what a crashing program returns too, and the contract
+# test used to read a traceback as proof that the check works.
+FIXTURE_FOUND_ITS_FAULT = 86
+
 LIMITS = {
     "instructions": {"hard": 40000, "operational": 30000},
     "reference": {"hard": 25000, "operational": 20000},  # scan:allow -- byte sizes
@@ -134,8 +139,8 @@ def run_fixture():
         print("\nfixture did not behave as declared: the brake cannot be trusted")
         return 3
     print("\nshrinking writes and vendor files passed, the two ceilings held;")
-    print("exiting 1 on purpose, because a check that cannot fail is not a check")
-    return 1
+    print("exiting 86: the code that means the fixture found the fault it planted")
+    return FIXTURE_FOUND_ITS_FAULT
 
 
 def main():

@@ -54,4 +54,4 @@ jobs:
         # name, so it lives outside the repository and cannot run here.
         # CI proves the scanner works; the pre-commit hook is what guards
         # those terms, on the machine where they exist.
-        run: python3 tools/secret_scan.py --fixture || test $? -eq 1
+        run: python3 tools/secret_scan.py --fixture || test $? -eq 86
