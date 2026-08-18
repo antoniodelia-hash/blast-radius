@@ -1,0 +1,12 @@
+# Local-only denylist: holds the real identifying strings. Never commit.
+denylist.local.txt
+denylist.local.*
+*.local.txt
+
+# Scratch and OS noise
+__pycache__/
+*.pyc
+.DS_Store
+*.bak
+*.bak-*
+.venv/

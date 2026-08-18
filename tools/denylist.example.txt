@@ -1,0 +1,23 @@
+# blast-radius — denylist template
+#
+# The real file (denylist.local.txt) lives OUTSIDE this repository and is
+# gitignored. This template ships the shape, never the values: a denylist
+# committed to a public repo publishes exactly what it was meant to protect.
+#
+# Three kinds of entry, because they fail differently:
+#
+#   literal:<text>   case-insensitive substring. For long, distinctive names
+#                    that also appear glued inside filenames and identifiers.
+#   word:<text>      case-insensitive, word-bounded. For short acronyms that
+#                    would otherwise fire inside ordinary English words.
+#   regex:<pattern>  for shapes rather than values: addresses, ids, keys.
+#
+# Lines starting with # and blank lines are ignored.
+
+literal:acme-industries
+literal:acmeindustries.example
+word:AIN
+regex:\b(?!10\.|127\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b
+regex:(?i)chat[_-]?id\D{0,10}-?[0-9]{6,}
+regex:\b(sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\b
+regex:-----BEGIN [A-Z ]*PRIVATE KEY-----
