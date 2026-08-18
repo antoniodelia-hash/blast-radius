@@ -12,7 +12,7 @@ nothing in its output suggested a gap.
 It matched 187 lines out of 199. The 12 it missed shared one property:
 the logger switches its quoting style when the message text contains an
 apostrophe. In Italian, apostrophes cluster in a specific kind of
-sentence — corrections. *"That's wrong, a delivery note is missing."*
+sentence — corrections. *"That's wrong, a document is missing."*
 *"You must just register it."*
 
 The parser was blind precisely where the signal it existed to measure was

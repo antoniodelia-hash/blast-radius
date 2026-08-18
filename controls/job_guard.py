@@ -146,7 +146,7 @@ FIXTURE = {
             "last_status": "ok",
             "last_run_at": "2026-08-18T07:00:00",
             "expected_every_minutes": 1440,
-            "output": "## Script Error\nmodule not found: eb_lib\n",
+            "output": "## Script Error\nmodule not found: shared_lib\n",
         },
         {
             # One floor up: ran, succeeded, reached nobody.

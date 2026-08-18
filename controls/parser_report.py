@@ -69,7 +69,7 @@ FIXTURE_LINES = [
     "2026-08-11 09:01 level=info msg='job 1 registered'",
     "2026-08-11 09:02 level=info msg='job 2 registered'",
     "2026-08-11 09:03 level=info msg='report sent'",
-    "2026-08-11 09:04 level=info msg=\"E' corretto, manca un DDT\"",
+    "2026-08-11 09:04 level=info msg=\"E' sbagliato, manca un allegato\"",
     "2026-08-11 09:05 level=info msg='window updated'",
     "2026-08-11 09:06 level=info msg=\"DEVI REGISTRARLO E BASTA\"",
     "2026-08-11 09:07 level=info msg='digest queued'",

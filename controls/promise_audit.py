@@ -89,7 +89,7 @@ FIXTURE = {
         {"id": "t2", "text": "Here are the figures you asked for. "
                              "I'm sending them the message with the rates."},
         {"id": "t3", "text": "Understood. Alright, I'll forward the request to them."},
-        {"id": "t4", "text": "I've filed proposal 27 for review."},
+        {"id": "t4", "text": "I've filed the change request for review."},
         {"id": "t5", "text": "The window closes on Friday, and the crew is already booked."},
         {"id": "t6", "text": "I'll pass this on as soon as the gate approves it."},
     ],

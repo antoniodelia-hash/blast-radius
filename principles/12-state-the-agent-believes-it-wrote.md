@@ -5,9 +5,13 @@
 
 ## What happened
 
-A hardening pass put `ProtectHome=tmpfs` into the service units. For the
-service, the home directory becomes an empty tmpfs, and every path the
-service needs has to be re-mounted explicitly into its namespace.
+A hardening pass gave each service its own view of the filesystem, with
+the home directory replaced by empty temporary storage. Every path the
+service needs then has to be re-mounted explicitly into that view.
+
+The exact directive is left out on purpose: the mechanism is what
+transfers between systems, and the string is what lets someone search for
+installations that have it.
 
 A forgotten mount produces no error of any kind. The agent writes, reads
 back what it wrote, and finds it — inside its namespace the file genuinely
@@ -42,9 +46,10 @@ that mimics deletion sends you looking for a culprit that does not exist.
 
 ## The control
 
-`monta_guard.py`, running every morning, checks that each path an agent
-depends on is a real mount inside the service namespace — asked from
-inside, since asking from the host answers a different question.
+A scheduled sentinel, shipped here as `controls/mount_guard.py`, checks
+that each path an agent depends on is real storage inside the service
+namespace — asked from inside, since asking from the host answers a
+different question.
 
 The root cause was fixed one level up, in the generator that writes the
 units, so that the mount list and the prerequisite list cannot drift apart

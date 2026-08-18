@@ -44,7 +44,7 @@ the readable-size limit.
 
 ## The control
 
-- **A morning sentinel measures every skill file in the active tree**, on
+- **A sentinel measures every instruction file in the active tree**, on
   every deployment, and reports anything over the readable-size limit as
   a fault. It previously measured only the skills we wrote ourselves,
   which is exactly why the vendor's oversized one walked in unnoticed.

@@ -23,7 +23,7 @@ three of the four were empty.
 Jul 2026   "I'll pass it to the operator, I'll take care of it"   -> nothing
 Jul 2026   "I'm sending them the message with the figures"        -> nothing
 Aug 2026   "Alright, I'll forward the request to them"            -> nothing, EUR 6,272 idle
-Aug 2026   "I've filed proposal #27"                              -> kept
+Aug 2026   "I've filed the change request"                        -> kept
 ```
 
 One every two weeks: below the noise floor, above the level that makes a
@@ -55,7 +55,7 @@ about it. The model cannot forget a step that stopped being its own.
 The request text carries the words of the person who asked, read from the
 session store rather than paraphrased by the model.
 
-**A morning sentinel compares yesterday's promises to the registers.** It
+**A scheduled sentinel compares recent promises to the registers.** It
 extracts the sentence that triggered the match, rather than the opening
 line of the message: the difference between a false positive dismissed in
 two seconds and one that costs a re-read.

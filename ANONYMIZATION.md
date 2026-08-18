@@ -37,16 +37,18 @@ name does. A reader who knows the industry needs three specific nouns.
 Terms get translated up one level of abstraction — far enough to break the
 fingerprint, close enough that the mechanism still makes sense.
 
-| Instead of | Write |
-|---|---|
-| the specific trade process (galvanizing, plating, …) | an outsourced treatment step |
-| kilograms of a named alloy | units of material |
-| job / work-order number 2xxxx | a job, referred to by position in the story |
-| progress-billing stage under a named contract | a progress milestone |
-| delivery note, transport document | delivery record |
-| the named department (technical office, …) | the engineering desk |
-| the named supplier | a supplier |
-| the client's client | the end customer |
+The rule is to raise each term one level of abstraction: far enough to
+break the fingerprint, close enough that the mechanism still makes sense.
+Named processes become *an outsourced step*. Quantities in trade units
+become *units of material*. Reference numbers become *a job, referred to
+by its position in the story*. Departments, suppliers and end customers
+lose their names and keep their roles.
+
+**The original terms are not listed here.** An earlier version of this
+page carried a two-column table with the real vocabulary on the left, and
+an adversarial reviewer used that column as its main evidence for
+reconstructing the sector. A translation table publishes the thing it
+translates.
 
 Do not over-abstract. "A number came out wrong" says nothing; "a revenue
 figure reached leadership understated by a third" says the mechanism

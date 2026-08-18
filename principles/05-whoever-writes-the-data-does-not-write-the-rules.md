@@ -35,9 +35,9 @@ The rule moved to where the data lives.
 - **Twenty-seven triggers inside the database** copy that signature onto
   every write, across the tables that matter. They apply to writes that
   never went near a script, which is the entire point.
-- **A morning sentinel** flags three things: a channel outside the known
-  set, a missing signature, and a signature older than fifteen minutes.
-  It writes to a human only when it finds something.
+- **A scheduled sentinel** flags three things: a channel outside the known
+  set, a missing signature, and a signature older than the freshness
+  window. It writes to a human only when it finds something.
 
 It was tested against reality rather than declared working: a legitimate
 write through the proper script came back clean, an insert through a
@@ -45,9 +45,9 @@ one-line interpreter call was flagged as an unknown channel, and a raw
 SQL insert with a stale signature was flagged as a signature two hours
 old.
 
-**A limit is published with it.** A back-door write that lands within
-fifteen minutes of a legitimate script inherits a signature that still
-looks fresh, and escapes the morning flag. It remains on the record for
+**A limit is published with it.** A back-door write that lands inside the
+freshness window of a legitimate script inherits a signature that still
+looks current, and escapes the flag. It remains on the record for
 later analysis. The stronger version — a signature held per connection so
 that an unsigned write **fails** instead of being noted — waits until the
 register has shown for some weeks that every legitimate channel really

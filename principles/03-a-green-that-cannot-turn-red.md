@@ -32,8 +32,8 @@ and the status field said ok.
 
 ## The control
 
-`cron_guard.py`, read-only, across every profile (shipped in this
-repository as `controls/job_guard.py`). It reports:
+A read-only sentinel across every deployment, shipped here as
+`controls/job_guard.py`. It reports:
 malformed script field, missing script file, last-status error, vanished
 profile, unreadable job list.
 
