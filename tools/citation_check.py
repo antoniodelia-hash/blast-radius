@@ -53,6 +53,21 @@ def flatten(text):
     return re.sub(r"\s+", " ", text)
 
 
+def comparable(text):
+    """Text reduced to what can be compared across a PDF line break.
+
+    Extraction breaks words at the right margin, and a word that already
+    contains a hyphen breaks after it: "non-repudiation" comes out as
+    "non-" then "repudiation". Flattening whitespace turns that into
+    "non- repudiation", which does not match the genuine quotation.
+
+    This cost a real false alarm: the checker rejected a correct citation,
+    and believing it would have meant editing a quotation that was right.
+    Hyphens are therefore removed on both sides before comparing.
+    """
+    return re.sub(r"[-\u2010\u2011]\s*", "", flatten(text)).lower()
+
+
 def flatten_with_offsets(raw):
     """Flatten whitespace while keeping, for each flattened character, the
     index it came from in the original text.
@@ -92,6 +107,11 @@ def pages_of(offsets, flat, pages, needle):
     start = 0
     while True:
         position = flat.find(target, start)
+        if position < 0:
+            # Same text, broken by a hyphen at the line end: fall back to
+            # locating a long unbroken prefix.
+            prefix = " ".join(target.split()[:4])
+            position = flat.find(prefix, start) if len(prefix) > 12 else -1
         if position < 0 or position >= len(offsets):
             break
         exact = offsets[position]
@@ -123,6 +143,7 @@ def collect_documents(paths):
 def run_check(documents, source_text, label):
     raw = source_text
     flat, offsets = flatten_with_offsets(raw)
+    comparable_flat = comparable(raw)
     pages = page_index(raw)
 
     examined = 0
@@ -139,7 +160,7 @@ def run_check(documents, source_text, label):
 
         for quotation, claimed in with_page:
             examined += 1
-            if flatten(quotation) not in flat:
+            if comparable(quotation) not in comparable_flat:
                 if flatten(quotation).lower() in flat.lower():
                     detail = ("found with different capitalisation: a quotation is "
                               "verbatim or it is a paraphrase")
@@ -178,6 +199,11 @@ Broken identity boundaries make enforcing true least privilege
 impossible across the agent fleet.
 
 genai.owasp.org                                            Page 15
+ASI08: Cascading Failures
+Defence rests on resilient logging and non-
+repudiation mechanisms that prevent silent propagation.
+
+genai.owasp.org                                            Page 30
 """
 
 # One correct quotation, one that PDF extraction split across two lines
@@ -201,11 +227,14 @@ Wrapped by the editor, and the page marker sits after some prose:
 "Broken identity boundaries make enforcing true least privilege
 impossible" among the causes listed there (p.15).
 
+Genuine, but the extractor broke the word at the hyphen:
+"resilient logging and non-repudiation mechanisms" (p.30).
+
 Quoted without a page marker, so it stays unchecked: "some other phrase entirely".
 '''
 
 EXPECTED_PROBLEMS = 3
-EXPECTED_EXAMINED = 7
+EXPECTED_EXAMINED = 8
 EXPECTED_UNCHECKED = 1
 
 
