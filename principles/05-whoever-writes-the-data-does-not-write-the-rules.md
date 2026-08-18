@@ -21,9 +21,9 @@ record anywhere of what had made those changes.
 
 ## What it cost
 
-No direct loss. The cost was the loss of the ability to answer "who
-changed this, and through what": for the period before the fix, that
-question has no answer.
+The cost was auditability. For the period before the fix, "who changed
+this, and through what" has no answer, and the money table is exactly
+where that question gets asked.
 
 ## The control
 

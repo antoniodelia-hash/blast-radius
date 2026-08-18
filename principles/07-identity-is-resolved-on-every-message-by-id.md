@@ -28,7 +28,11 @@ The mechanism the whole system exists for — a person asks, the system
 decides, the person is told — was broken for **25 of 29** requests,
 silently: 22 rows carried no identifier at all, and 3 carried a display
 name where the platform needs an account id.
-No money moved. What eroded was the reason anyone would keep using it.
+
+What this costs is the reason anyone keeps using the system. People who
+propose a change and never hear back stop proposing changes.
+The erosion was in trust rather than in euros, which is why nothing
+flagged it.
 
 ## The control
 

@@ -66,9 +66,25 @@ def inspect(observation):
         recorded = by_turn.get(turn_id, [])
         if not recorded:
             problems.append((turn_id, "unkept", sentence))
-        elif len(recorded) > 1:
+            continue
+        if len(recorded) > 1:
             problems.append((turn_id, "duplicated",
                              "%d acts recorded for one promise: %s" % (len(recorded), sentence)))
+        # Matching on the turn alone accepts any act that happened to be
+        # recorded there. A promise to forward a request is not answered by
+        # an unrelated write, so the act has to declare what it was.
+        expected = turn.get("expected_act")
+        if expected:
+            kinds = [act.get("kind") for act in recorded]
+            if expected not in kinds:
+                problems.append((turn_id, "mismatched",
+                                 "promise expected %r, register holds %s"
+                                 % (expected, kinds or "nothing")))
+        else:
+            untyped = [act for act in recorded if not act.get("kind")]
+            if untyped:
+                problems.append((turn_id, "untyped-act",
+                                 "an act with no kind cannot answer a promise"))
     return len(turns), problems
 
 
@@ -91,16 +107,21 @@ FIXTURE = {
         {"id": "t3", "text": "Understood. Alright, I'll forward the request to them."},
         {"id": "t4", "text": "I've filed the change request for review."},
         {"id": "t5", "text": "The window closes on Friday, and the crew is already booked."},
+        # An act was recorded on this turn, and it is not the act promised.
+        {"id": "t7", "text": "I'll forward the request to them.",
+         "expected_act": "request_filed"},
         {"id": "t6", "text": "I'll pass this on as soon as the gate approves it."},
     ],
     "acts": [
         {"turn_id": "t4", "kind": "proposal_filed"},
+        {"turn_id": "t7", "kind": "note_written"},
         {"turn_id": "t6", "kind": "request_filed"},
         {"turn_id": "t6", "kind": "request_filed"},
     ],
 }
 
-EXPECTED = {"t1": "unkept", "t2": "unkept", "t3": "unkept", "t6": "duplicated"}
+EXPECTED = {"t1": "unkept", "t2": "unkept", "t3": "unkept", "t6": "duplicated",
+            "t7": "mismatched"}
 
 
 def run_fixture():
@@ -115,7 +136,7 @@ def run_fixture():
         conforms = False
     else:
         print("ok    every seeded turn was examined (%d)" % examined)
-    for turn_id in ("t1", "t2", "t3", "t4", "t5", "t6"):
+    for turn_id in ("t1", "t2", "t3", "t4", "t5", "t6", "t7"):
         expected = EXPECTED.get(turn_id)
         actual = got.get(turn_id)
         if expected == actual:

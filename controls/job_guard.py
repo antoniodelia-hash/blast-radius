@@ -84,9 +84,10 @@ def inspect(observation):
         reports_anomalies = bool(job.get("reports_anomalies"))
 
         # 1. The green that cannot turn red: status says ok, output says otherwise.
+        lowered_output = (output or "").lower()
         if status == "ok" and output:
             for marker in FAILURE_MARKERS:
-                if marker in output:
+                if marker.lower() in lowered_output:
                     problems.append((job_id, "false-green",
                                      "status ok, output contains %r" % marker))
                     break
@@ -100,7 +101,7 @@ def inspect(observation):
         #    anomalies are exempt: their output is meant to mention alerts.
         if output and not reports_anomalies:
             for marker in SILENT_DELIVERY_MARKERS:
-                if marker in output:
+                if marker.lower() in lowered_output:
                     problems.append((job_id, "silent-delivery-failure",
                                      "output contains %r while status is %r"
                                      % (marker, status or "unset")))

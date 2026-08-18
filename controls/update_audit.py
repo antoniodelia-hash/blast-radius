@@ -56,7 +56,12 @@ def inspect(observation):
         marker = patch.get("marker")
         target = patch.get("target_file")
         occurrences = patch.get("marker_occurrences_after")
-        if occurrences == 0:
+        if occurrences is None:
+            # Not collected and zero are opposite findings, and treating the
+            # first as clean is how an unchecked patch passes as restored.
+            findings.append((target or patch.get("name", "<patch>"), "not-collected",
+                             "no marker count for %r: nothing was verified" % marker))
+        elif occurrences == 0:
             findings.append((target or patch.get("name", "<patch>"), "orphaned",
                              "marker %r not found after update: reapply hit nothing"
                              % marker))
@@ -90,6 +95,10 @@ FIXTURE = {
         # A patch that really did survive: must stay silent.
         {"name": "mime-type", "target_file": "core/base.py",
          "marker": "application/vnd.ms-excel", "marker_occurrences_after": 2},
+        # The collector never ran for this one. Silence here used to read
+        # as health.
+        {"name": "encoding-fix", "target_file": "core/text.py",
+         "marker": "normalise_encoding"},
     ],
 }
 
@@ -98,6 +107,7 @@ EXPECTED = {
     ("skills/vendor-paper-writing", "appeared"),
     ("skills/vendor-paper-writing", "oversized"),
     ("plugins/adapter.py", "orphaned"),
+    ("core/text.py", "not-collected"),
 }
 
 
@@ -107,11 +117,11 @@ def run_fixture():
     got = set((name, kind) for name, kind, _ in findings)
     print("\n--- fixture verdict ---")
     conforms = True
-    if examined != 7:
-        print("FAIL  examined %d items, the fixture holds 7" % examined)
+    if examined != 8:
+        print("FAIL  examined %d items, the fixture holds 8" % examined)
         conforms = False
     else:
-        print("ok    every component and patch was examined (7)")
+        print("ok    every component and patch was examined (8)")
     for pair in sorted(EXPECTED):
         if pair in got:
             print("ok    caught %s: %s" % pair)

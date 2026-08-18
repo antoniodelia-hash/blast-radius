@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
 
+# Actions are pinned to commit SHAs rather than to moving tags. A tag can be
+# repointed by whoever owns it, which makes "v4" a promise rather than a
+# version -- and card 10 in this repository is about exactly that: an update
+# channel is an actor.
+
 jobs:
   controls:
     # The controls are plain standard-library Python on purpose: someone who
@@ -14,14 +19,15 @@ jobs:
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ matrix.python }}
-      - name: every check can fail
-        run: python3 controls/tests/test_contract.py
-      - name: mapping counters describe the table
-        run: python3 tools/mapping_check.py
+      - name: the same script a human runs
+        # One entrypoint for CI and for the desk. A CI script that drifts
+        # from what a person runs is two checks, and one of them is never
+        # exercised.
+        run: sh tools/run_all_checks.sh
 
   imports:
     # Deliberately one modern Python rather than the matrix: the inventory of
@@ -31,8 +37,8 @@ jobs:
     # fewer.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
       - name: no third-party imports
@@ -41,14 +47,38 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0   # the whole history: a secret removed in the next
                            # commit is still in the history for good
       - name: gitleaks over the full history
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7  # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: canary -- prove the secret scanner still sees a secret
+        # A scanner reporting "no leaks found" is indistinguishable from one
+        # that has stopped looking, and gitleaks has shipped releases where
+        # that happened. This plants a credential of the real shape in a
+        # throwaway repository and fails the build if the scanner walks past
+        # it. Nothing here is a real secret.
+        run: |
+          set -e
+          mkdir -p /tmp/canary && cd /tmp/canary
+          git init -q .
+          # Assembled at run time on purpose: a canary that ships the full
+          # credential shape would be a finding in this repository's own
+          # history, and both scanners would refuse the commit that adds it.
+          prefix=ghp; body=016C7869BA1F0E4C8B2D9A3E5F7061829304
+          printf 'token = "%s_%s"\n' "$prefix" "$body" > planted.py
+          git add planted.py
+          git -c user.email=canary@example.invalid -c user.name=canary commit -qm planted
+          if gitleaks git . --no-banner --redact; then
+            echo "canary failed: the scanner walked past a planted credential"
+            exit 1
+          fi
+          echo "canary ok: the planted credential was caught"
+
       - name: the client denylist scanner can still fail
         # The real denylist holds the strings this repository must never
         # name, so it lives outside the repository and cannot run here.

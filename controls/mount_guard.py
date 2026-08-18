@@ -52,6 +52,18 @@ def inspect(observation):
             # on disk. Presents as a deletion, with no delete anywhere.
             problems.append((path, "namespace-only",
                              "reads back from inside, absent outside"))
+            continue
+        # Present on both sides is not the same as being the same storage.
+        # Without an identifier to compare, the check would approve a path
+        # that exists in two unrelated places.
+        inside_id = (inside.get(path) or {}).get("device")
+        outside_id = (outside.get(path) or {}).get("device") if isinstance(outside.get(path), dict) else None
+        if inside_id is None or outside_id is None:
+            problems.append((path, "unproven",
+                             "no device identifier on one side: sameness not established"))
+        elif inside_id != outside_id:
+            problems.append((path, "different-storage",
+                             "inside device %s, outside device %s" % (inside_id, outside_id)))
     return len(paths), problems
 
 
@@ -69,15 +81,21 @@ FIXTURE = {
         "/data/knowledge",       # forgotten entirely
         "/data/state",           # on a temporary filesystem
         "/data/config",          # healthy: must stay silent
+        "/data/shared",          # on both sides, sameness never established
+        "/data/twin",            # two different devices behind one path
     ],
     "visible_inside": {
         "/data/output": {"filesystem": "overlay"},
         "/data/state": {"filesystem": "tmpfs"},
-        "/data/config": {"filesystem": "ext4"},
+        "/data/config": {"filesystem": "ext4", "device": "8:1"},
+        "/data/shared": {"filesystem": "ext4", "device": "8:1"},
+        "/data/twin": {"filesystem": "ext4", "device": "8:1"},
     },
     "present_outside": {
-        "/data/config": True,
+        "/data/config": {"device": "8:1"},
         "/data/knowledge": True,
+        "/data/shared": True,
+        "/data/twin": {"device": "252:3"},
     },
 }
 
@@ -85,6 +103,8 @@ EXPECTED = {
     "/data/output": "namespace-only",
     "/data/knowledge": "missing",
     "/data/state": "ephemeral",
+    "/data/shared": "unproven",
+    "/data/twin": "different-storage",
 }
 
 

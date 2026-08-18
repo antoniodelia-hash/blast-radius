@@ -26,8 +26,9 @@ notes been three lines shorter, it would have gone out.
 
 ## What it cost
 
-Nothing left the building. The cost was the discovery that scope, in that
-path, was enforced by a coincidence.
+The cost was the discovery itself: scope, in that path, was enforced by a
+coincidence. The payload stayed inside, and it stayed inside because a
+message length limit happened to sit in the way.
 
 ## The control
 
