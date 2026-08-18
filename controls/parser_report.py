@@ -131,6 +131,12 @@ def main():
         return run_fixture()
     if not args.logfile:
         parser.error("give a log file, or --fixture")
+    # NaN compares false against everything, so a discard rate of 50% would
+    # have passed a threshold of NaN without a word.
+    limit = args.max_discard
+    if not (limit == limit) or limit < 0 or limit > 1:
+        print("--max-discard must be a fraction between 0 and 1, got %r" % limit)
+        return 2
     try:
         with open(args.logfile, encoding="utf-8", errors="replace") as handle:
             lines = handle.read().splitlines()

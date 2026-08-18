@@ -81,16 +81,29 @@ def page_index(raw):
     return [(m.start(), int(m.group(1))) for m in PAGE_FOOTER.finditer(raw)]
 
 
-def page_of(offsets, flat, pages, needle):
-    """The page a quotation sits on, from the footer that follows it."""
-    position = flat.find(flatten(needle))
-    if position < 0 or not pages or position >= len(offsets):
-        return None
-    exact = offsets[position]
-    for offset, number in pages:
-        if offset >= exact:
-            return number
-    return pages[-1][1]
+def pages_of(offsets, flat, pages, needle):
+    """Every page the quotation appears on, not just the first.
+
+    Using the first occurrence quietly rewards a citation that names a
+    later, correct page while the tool checks an earlier one.
+    """
+    found = []
+    target = flatten(needle)
+    start = 0
+    while True:
+        position = flat.find(target, start)
+        if position < 0 or position >= len(offsets):
+            break
+        exact = offsets[position]
+        for offset, number in pages:
+            if offset >= exact:
+                found.append(number)
+                break
+        else:
+            if pages:
+                found.append(pages[-1][1])
+        start = position + 1
+    return found
 
 
 def collect_documents(paths):
@@ -134,10 +147,14 @@ def run_check(documents, source_text, label):
                     detail = "not found in the source document"
                 problems.append((path, quotation, detail))
                 continue
-            actual = page_of(offsets, flat, pages, quotation)
-            if actual is not None and abs(actual - int(claimed)) > 1:
+            actual = pages_of(offsets, flat, pages, quotation)
+            # Exact match, on any of the pages where the text appears. The
+            # earlier tolerance of one page would have accepted a citation
+            # to p.13 for text sitting on p.12.
+            if actual and int(claimed) not in actual:
+                where = ", ".join("p.%d" % p for p in sorted(set(actual)))
                 problems.append((path, quotation,
-                                 "claims p.%s, found around p.%s" % (claimed, actual)))
+                                 "claims p.%s, found on %s" % (claimed, where)))
 
     print("%-22s examined=%d problems=%d unchecked=%d"
           % (label, examined, len(problems), unchecked))
@@ -177,6 +194,9 @@ Invented, and it must be caught: "agents must never touch production" (p.12).
 
 Right words, wrong page: "Loop amplification: Planner repeatedly calls costly" (p.30).
 
+Off by a single page, which the earlier tolerance accepted:
+"Agents call tools on behalf of users" (p.13).
+
 Wrapped by the editor, and the page marker sits after some prose:
 "Broken identity boundaries make enforcing true least privilege
 impossible" among the causes listed there (p.15).
@@ -184,8 +204,8 @@ impossible" among the causes listed there (p.15).
 Quoted without a page marker, so it stays unchecked: "some other phrase entirely".
 '''
 
-EXPECTED_PROBLEMS = 2
-EXPECTED_EXAMINED = 6
+EXPECTED_PROBLEMS = 3
+EXPECTED_EXAMINED = 7
 EXPECTED_UNCHECKED = 1
 
 

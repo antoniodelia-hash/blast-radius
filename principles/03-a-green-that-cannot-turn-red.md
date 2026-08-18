@@ -48,14 +48,24 @@ Three design choices carry the weight:
 
 ## Verifying the control is alive
 
-- `controls/job_guard.py --fixture` seeds a job whose status says ok and
-  whose output holds a script error, a job that has not produced output
-  in weeks, and a healthy job that must stay silent. It exits non-zero on
-  purpose.
-- The test battery runs nine cases in the real shape — absolute paths,
-  traversal attempts, a non-string script field — because a fixture built
-  from tidy data proves the parser handles tidy data.
-- In production the sentinel reported 11 jobs across 5 profiles and 12
+**Two layers, and this repository ships one of them.** The production
+sentinel reads a live runtime: it resolves job definitions, validates the
+script field against a whitelist, checks that the file exists, and notices
+a profile that has vanished. Those checks need the runtime to exist, so
+they belong to a collector that has no meaning on your machine.
+
+`controls/job_guard.py` is the other layer: pure verdict logic over a
+declared observation. It decides four things — a status contradicted by
+its own output, a status with no output to check it against, a run that
+reached nobody, and a job that stopped running — and it decides them from
+a JSON file you can write by hand.
+
+- `job_guard.py --fixture` seeds all four, plus two healthy jobs that must
+  stay silent, one of which prints alerts for a living. It exits 86, the
+  code that means the fixture found the fault it planted.
+- The clock comes from the observation file rather than the wall clock, so
+  a verdict is reproducible a year later.
+- In production the sentinel reported 11 jobs across 5 deployments and 12
   anomalies. The number to watch is the first one: if jobs examined ever
   reads 0, the check has stopped being a check.
 
@@ -73,9 +83,8 @@ None of the ten entries fits that without stretching.
 
 ASI08 (Cascading Failures) comes closest in spirit, since it argues for
 "resilient logging and non-repudiation mechanisms that prevent silent
-propagation" — but ASI08 is explicitly about a fault spreading across
-agents, and this fault did the opposite: it sat still, in one place, for
-two months.
+propagation" (p.30). ASI08 applies to a fault that spreads across agents;
+this one sat still, in one place, for two months.
 
 Stating the gap is part of the point. Production failures do not arrive
 pre-sorted into a threat taxonomy, and a repository that forces every

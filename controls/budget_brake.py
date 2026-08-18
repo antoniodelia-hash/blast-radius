@@ -41,6 +41,20 @@ LIMITS = {
 }
 
 
+def strict_bool(value, field):
+    """Accept only a real boolean.
+
+    A JSON file carrying "false" as a string is truthy in Python, so an
+    exemption meant to be off would have been read as on. An observation
+    that says something unreadable gets refused instead of guessed.
+    """
+    if value is None:
+        return False
+    if not isinstance(value, bool):
+        raise ValueError("%s must be true or false, got %r" % (field, value))
+    return value
+
+
 def decide(write, limits=None):
     """Return (verdict, reason). Verdict is refuse | mark | pass."""
     limits = limits or LIMITS
@@ -49,7 +63,7 @@ def decide(write, limits=None):
     before = write.get("size_before")
     after = write.get("size_after", 0)
 
-    if write.get("vendor_owned"):
+    if strict_bool(write.get("vendor_owned"), "vendor_owned"):
         return "pass", "vendor-owned: exempt by manifest membership"
     if before is not None and after <= before:
         return "pass", "write removes content (%d -> %d)" % (before, after)
@@ -160,7 +174,11 @@ def main():
         print("unusable observation file: %s" % error)
         return 2
 
-    examined, results = inspect(observation)
+    try:
+        examined, results = inspect(observation)
+    except ValueError as error:
+        print("observation refused: %s" % error)
+        return 2
     refused = report(examined, results, "budget-brake")
     if examined == 0:
         print("examined zero writes: that is a fault, not a quiet day")
