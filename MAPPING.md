@@ -13,27 +13,35 @@ Every quotation below was checked against the published PDF, with the
 page it sits on. `tools/citation_check.py` re-runs that check.
 
     principles examined = 12    adversary present = 0
-    full = 1    partial = 6    none = 5
+    full = 1    partial = 6 (one of them weak)    none = 5
 
 ## Where our incidents land
 
-Principle numbering is provisional until all twelve cards are written.
+Card files are named after these numbers. Cards 02, 03 and 12 are
+written; the rest arrive in the order of the list.
 
-| Principle | ASI | Verdict | Adversary | Quotation holding the verdict |
-|---|---|---|---|---|
-| A spending brake lives outside the agent | ASI02 | partial | no | "Loop amplification: Planner repeatedly calls costly APIs, causing DoS or bill spikes" (p.12); "Adaptive Tool Budgeting" (p.14) |
-| An announced action and a performed action are different events | ASI09 | partial | no | "Adversaries or misaligned designs may exploit this trust" (p.33); "approving actions without independent validation" (p.33) |
-| A green light that cannot turn red is not a status | — | none | no | ASI08 applies "only when that defect spreads across agents" (p.30); this one stayed still for two months |
-| A control is verified from outside itself | — | none | no | ASI02 prescribes policy enforcement middleware (p.14) and no entry covers a guardrail that reports as installed and is silently discarded |
-| Whoever writes the data does not write the rules | ASI03 | partial | no | "Mandate Per-Action Authorization" (p.17) |
-| The permission wall lives in code, with its own exit code | ASI03 | partial | no | broken identity boundaries make "enforcing true least privilege impossible" (p.15) |
-| Identity is resolved on every message, by id | — | none | no | the attribution gap in ASI03 (p.15) concerns the *agent's* identity; here the *human* identity was resolved by name instead of id |
-| A permission holds for one caller only | ASI03 | partial | no | "Un-scoped Privilege Inheritance" (p.15) |
-| A parser declares what it discarded | — | none | no | no entry; the leaders' letter gives the ground: "observability becomes non-negotiable" (p.7) |
-| One fact, one engine | ASI08 | partial | no | fault propagation across views of the same figure (p.30) |
-| A discrepancy is dug to the cent, then escalated | ASI09 | partial (weak) | no | "Fake Explainability" (p.34) |
-| The state an agent believes it wrote may only exist in RAM | — | none | no | ASI06 covers adversaries who "corrupt or seed this context" (p.24); nothing here was corrupted or seeded |
-| An update is an actor: check what it installs and what it drops | ASI04 | full | no | "or update channels" among the components at risk (p.18); "agentic ecosystems often compose capabilities at runtime" (p.18) |
+| # | Principle | ASI | Verdict | Adversary | Quotation holding the verdict |
+|---|---|---|---|---|---|
+| 01 | A spending brake lives outside the agent | ASI02 | partial | no | "Loop amplification: Planner repeatedly calls costly APIs, causing DoS or bill spikes" (p.12); "Adaptive Tool Budgeting" (p.14) |
+| 02 | An announced action and a performed action are different events | ASI09 | partial | no | "Adversaries or misaligned designs may exploit this trust" (p.33); "approving actions without independent validation" (p.33) |
+| 03 | A green light that cannot turn red is not a status | — | none | no | ASI08 applies "only when that defect spreads across agents" (p.30); this one stayed still for two months |
+| 04 | A control is verified from outside itself | — | none | no | ASI02 prescribes policy enforcement middleware (p.14) and no entry covers a guardrail that reports as installed and is silently discarded |
+| 05 | Whoever writes the data does not write the rules | ASI03 | partial | no | "Mandate Per-Action Authorization" (p.17) |
+| 06 | The permission wall lives in code, with its own exit code | ASI03 | partial | no | broken identity boundaries make "enforcing true least privilege impossible" (p.15) |
+| 07 | Identity is resolved on every message, by id | — | none | no | the attribution gap in ASI03 (p.15) concerns the *agent's* identity; here the *human* identity was resolved by name instead of id |
+| 08 | A permission holds for one caller only | ASI03 | partial | no | "Un-scoped Privilege Inheritance" (p.15) |
+| 09 | A parser declares what it discarded | — | none | no | no entry; the leaders' letter gives the ground: "observability becomes non-negotiable" (p.7) |
+| 10 | An update is an actor: check what it installs and what it drops | ASI04 | full | no | "or update channels" among the components at risk (p.18); "agentic ecosystems often compose capabilities at runtime" (p.18) |
+| 11 | A discrepancy is dug to the cent, then escalated | ASI09 | partial (weak) | no | "Fake Explainability" (p.34) |
+| 12 | The state an agent believes it wrote may only exist in RAM | — | none | no | ASI06 covers adversaries who "corrupt or seed this context" (p.24); nothing here was corrupted or seeded |
+
+### Held back
+
+"One fact, one engine" — two engines answering the same question and
+disagreeing — is documented and kept out of the twelve for now. Its
+sharpest numbers come from a synthetic dataset, and a cost figure that
+did not happen has no place next to fifteen that did. It returns once
+re-anchored on its production twin.
 
 ## Where the taxonomy goes and we do not follow
 
