@@ -35,8 +35,12 @@ import re
 import sys
 import tempfile
 
-QUOTE_WITH_PAGE = re.compile(r'"([^"\n]{10,})"\s*\(p\.(\d+)\)')
-QUOTE_ANY = re.compile(r'"([^"\n]{10,})"')
+# Both patterns run on the flattened document, so a quotation wrapped
+# across lines by the editor still matches. Up to 80 characters of prose
+# may sit between the closing quote and its page marker: cards say things
+# like "X" among the components at risk (p.18).
+QUOTE_WITH_PAGE = re.compile(r'"([^"]{10,})"[^"]{0,80}?\(p\.(\d+)\)')
+QUOTE_ANY = re.compile(r'"([^"]{10,})"')
 PAGE_FOOTER = re.compile(r"Page (\d+)")
 
 
@@ -109,7 +113,7 @@ def run_check(documents, source_text, label):
 
     for path in documents:
         with open(path, encoding="utf-8") as handle:
-            body = handle.read()
+            body = flatten(handle.read())
 
         with_page = QUOTE_WITH_PAGE.findall(body)
         all_quotes = QUOTE_ANY.findall(body)
@@ -118,7 +122,12 @@ def run_check(documents, source_text, label):
         for quotation, claimed in with_page:
             examined += 1
             if flatten(quotation) not in flat:
-                problems.append((path, quotation, "not found in the source document"))
+                if flatten(quotation).lower() in flat.lower():
+                    detail = ("found with different capitalisation: a quotation is "
+                              "verbatim or it is a paraphrase")
+                else:
+                    detail = "not found in the source document"
+                problems.append((path, quotation, detail))
                 continue
             actual = page_of(offsets, flat, pages, quotation)
             if actual is not None and abs(actual - int(claimed)) > 1:
@@ -163,11 +172,15 @@ Invented, and it must be caught: "agents must never touch production" (p.12).
 
 Right words, wrong page: "Loop amplification: Planner repeatedly calls costly" (p.30).
 
+Wrapped by the editor, and the page marker sits after some prose:
+"Broken identity boundaries make enforcing true least privilege
+impossible" among the causes listed there (p.15).
+
 Quoted without a page marker, so it stays unchecked: "some other phrase entirely".
 '''
 
 EXPECTED_PROBLEMS = 2
-EXPECTED_EXAMINED = 5
+EXPECTED_EXAMINED = 6
 EXPECTED_UNCHECKED = 1
 
 

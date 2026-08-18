@@ -85,10 +85,10 @@ That is precisely what happened: a fluent sentence stood in for an act,
 and nothing downstream could tell the two apart.
 
 The mapping is partial for a narrower reason than "no attacker was
-involved". ASI09 covers "adversaries **or misaligned designs**" and its
-fourth scenario opens with "regardless of root cause (hijack, poisoning,
-or hallucination)" (p.34), so a failure with nobody behind it sits inside
-its scope. What the entry then follows is exploitation: an adversary
+involved". ASI09 covers "Adversaries or misaligned designs may exploit
+this trust" (p.33), and its fourth scenario opens with "Regardless of root
+cause (hijack, poisoning, or hallucination)" (p.34), so a failure with
+nobody behind it sits inside its scope. What the entry then follows is exploitation: an adversary
 converting misplaced trust into a harmful action.
 
 Here the mechanism matched and the exploitation never came. A sentence
