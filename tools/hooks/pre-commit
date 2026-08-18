@@ -1,0 +1,27 @@
+#!/bin/sh
+# blast-radius: two passes, because they are blind in different places.
+#   secret_scan.py  knows who the client is; no generic tool can.
+#   gitleaks        knows what a credential looks like; ours knows five shapes.
+# Both must pass. Either one alone leaves a hole that was measured, not guessed.
+root=$(git rev-parse --show-toplevel)
+fail=0
+
+python3 "$root/tools/secret_scan.py" --staged
+status=$?
+if [ "$status" -eq 1 ]; then
+    echo "blocked: the lines above name something the repo must not name."
+    fail=1
+elif [ "$status" -eq 2 ]; then
+    echo "blocked: the scanner examined nothing, or has no denylist."
+    echo "a silent check is indistinguishable from a broken one."
+    fail=1
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks git --staged --redact --no-banner "$root" || fail=1
+else
+    echo "gitleaks missing: credential scanning did not run on this commit."
+    echo "install it, or accept that only the client denylist was checked."
+fi
+
+exit $fail

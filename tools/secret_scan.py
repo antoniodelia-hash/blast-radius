@@ -147,6 +147,7 @@ word:AIN
 regex:\\b(?!10\\.|127\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b
 regex:(?i)chat[_-]?id\\D{0,10}-?[0-9]{6,}
 regex:\\b(sk-[A-Za-z0-9]{16,}|ghp_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\\b
+regex:\\b[a-z][a-z0-9+.-]*://[^/\\s:@]+:[^/\\s@]{3,}@
 """
 
 # Each entry: (relative path, file body, how many hits that file must produce).
@@ -157,8 +158,11 @@ FIXTURE_FILES = [
     (
         "notes.md",
         "The client is Acme-Industries and it shows.\n"
-        "Reach the box at 203.0.113.5 over ssh.\n",  # scan:allow -- bait, not a real address
-        2,
+        "Reach the box at 203.0.113.5 over ssh.\n"  # scan:allow -- bait, not a real address
+        # A password inside a connection URL. Neither this scanner nor
+        # gitleaks caught this shape until it was planted here on purpose.
+        "DSN = postgres://admin:hunter2@db.internal:5432/prod\n",  # scan:allow -- bait
+        3,
     ),
     (
         # Hidden directory. The scanner that shipped this repo's first draft
