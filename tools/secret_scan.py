@@ -191,7 +191,36 @@ def staged_content(path):
     return result.stdout
 
 
-def run_scan(files, denylist_path, label, reader=None, allowlist_path=None):
+def redact_rule(rule, show):
+    """Rule names carry the secret for literal and word rules.
+
+    Redacting the matched text while printing `literal:acme-industries` as
+    the rule name protects nothing. The kind and an index stay visible, so
+    the entry is still findable in the register; the value does not.
+    """
+    if show or rule.startswith("regex:"):
+        return rule
+    kind, _, _value = rule.partition(":")
+    return "%s:<redacted>" % kind
+
+
+def redact(matched, show):
+    """What gets printed when a rule fires.
+
+    Printing the matched text puts the very string the denylist protects
+    into a terminal, a log, or a CI transcript -- written there by the tool
+    whose job is to keep it out. The rule name and the location are enough
+    to find and fix the line; the value itself is opt-in.
+    """
+    if show:
+        return repr(matched)
+    if len(matched) <= 4:
+        return "<%d chars>" % len(matched)
+    return "%s…%s <%d chars>" % (matched[0], matched[-1], len(matched))
+
+
+def run_scan(files, denylist_path, label, reader=None, allowlist_path=None,
+             show_matches=False):
     """`reader` returns the text for a path; None means read it from disk."""
     literals, words, regexes = load_denylist(denylist_path)
     allowlist = load_allowlist(allowlist_path, reader)
@@ -233,7 +262,9 @@ def run_scan(files, denylist_path, label, reader=None, allowlist_path=None):
     print("%-22s examined=%d rules=%d problems=%d allowed=%d"
           % (label, examined, rules, len(problems), allowed_total))
     for path, lineno, rule, matched in problems:
-        print("   %s:%d  %s  ->  %r" % (path, lineno, rule, matched))
+        print("   %s:%d  %s  ->  %s"
+              % (path, lineno, redact_rule(rule, show_matches),
+                 redact(matched, show_matches)))
     return examined, problems
 
 
@@ -381,6 +412,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="*", default=None)
     parser.add_argument("--denylist", default=None)
+    parser.add_argument("--show-matches", action="store_true",
+                        help="print the matched text itself (off by default: "
+                             "the output may end up in a log or a CI transcript)")
     parser.add_argument("--allowlist", default=None,
                         help="register of approved exceptions (default: tools/allowlist.txt)")
     parser.add_argument("--staged", action="store_true", help="scan what git is about to commit")
@@ -427,6 +461,7 @@ def main():
         examined, problems = run_scan(
             files, denylist_path, "secret-scan",
             reader=staged_content if args.staged else None,
+            show_matches=args.show_matches,
             # In --staged mode the register is read through `git show :path`,
             # which wants a repository-relative path. Handing it an absolute
             # one made the read fail silently and the register come back

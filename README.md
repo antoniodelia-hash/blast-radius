@@ -5,7 +5,9 @@
 Twelve principles from 18 incidents and 1 near miss, recorded on five LLM
 agent deployments in a small manufacturing setting between June and
 August 2026 — some of them at the same client, one in personal use.
-Every incident has a month, a cost or a remedy, and a control you can run.
+Every incident has a month and a cost or a remedy. Seven runnable
+controls cover the twelve principles: some controls answer more than one,
+and each card says which.
 
 **In none of the eighteen was there an adversary.**
 
