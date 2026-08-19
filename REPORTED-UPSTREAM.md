@@ -1,8 +1,8 @@
 # Reported upstream
 
-Some of what is described here is a defect in software other people
-maintain. Those go to the maintainers first, and appear in this repository
-with a link to the report.
+Some of the failures described here are defects in software other
+people maintain. Those go to the maintainers first, and appear in this
+repository with a link to the report.
 
 ## A health check that looks from the wrong place
 
@@ -21,7 +21,7 @@ and absent for the process that needs it. The check reports green, and the
 hook never fires.
 
 Reported before this repository was published, which is the order these
-things belong in: the maintainers know what card 04 says, on the same day
+things belong in: the maintainers knew what card 04 says on the same day
 the card became public.
 
 ## Sessions that never expire

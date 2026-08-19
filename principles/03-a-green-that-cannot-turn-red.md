@@ -80,7 +80,7 @@ a JSON file you can write by hand.
 The 2026 Agentic list is a threat taxonomy: hijacked goals, misused
 tools, poisoned memory, rogue agents. It does account for failures with
 nobody behind them — ASI10 is described as "autonomous misalignment that
-emerges without active attacker control" (p.9) — and that entry follows an
+emerges without active attacker control" (p.9) — and that entry tracks an
 *agent* that drifts out of its mandate. Here the agent did its job
 correctly, and the status field around it reported something untrue.
 None of the ten entries fits that without stretching.

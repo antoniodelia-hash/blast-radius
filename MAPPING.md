@@ -42,8 +42,9 @@ Card files are named after these numbers. All twelve are written.
 "One fact, one engine" — two engines answering the same question and
 disagreeing — is documented and kept out of the twelve for now. Its
 sharpest numbers come from a synthetic dataset, and a cost figure that
-did not happen has no place next to fifteen that did. It returns once
-re-anchored on its production twin.
+did not happen has no place next to the ones in the ledger, which did. It
+returns once
+re-anchored to its production twin.
 
 ## Where the taxonomy goes and we do not follow
 
@@ -99,5 +100,5 @@ The mapping was made from the published PDF, read in full. The OWASP
 landing page does not list the ASI codes, so secondary summaries were not
 used. Where a quotation is split across lines by PDF extraction, the
 checker flattens whitespace before comparing — a check that missed two
-genuine quotations before that was fixed, which is the kind of failure
+genuine quotations until that was fixed, which is the kind of failure
 this repository is about.

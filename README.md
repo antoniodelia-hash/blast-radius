@@ -2,10 +2,10 @@
 
 **Field-tested containment for AI agents in production.**
 
-Twelve principles from 18 incidents and 1 near miss, recorded on five LLM
-agent deployments in a small manufacturing setting between June and
-August 2026 — some of them at the same client, one in personal use.
-Every incident has a month and a cost or a remedy. Seven runnable
+Twelve principles from 18 incidents and 1 near miss, recorded across
+five LLM agent deployments in a small manufacturing setting between
+June and August 2026 — some of them at the same client, one in personal
+use. Every incident has a month and a cost or a remedy. Seven runnable
 controls cover the twelve principles: some controls answer more than one,
 and each card says which.
 
@@ -13,10 +13,10 @@ and each card says which.
 
 That last line is the reason this repository exists. The published
 taxonomies describe how an agent can be attacked. These eighteen failures
-had nobody attacking: a status field that said `ok` over a failed script,
-a file the agent wrote and read back that never reached the disk, a fluent
-sentence standing in for an act that was never performed. The systems
-stayed green throughout.
+had nobody attacking: a status field that said `ok` on top of a failed
+script, a file the agent wrote and read back that never reached the disk,
+a fluent sentence standing in for an act that was never performed. The
+systems stayed green throughout.
 
 ## The twelve
 
@@ -47,7 +47,7 @@ python3 controls/job_guard.py --fixture
 ```
 
 `--fixture` seeds the failures that actually happened, in the shape they
-had, and exits **86** — the code that means *the fixture found the fault it
+took, and exits **86** — the code that means *the fixture found the fault it
 planted*. A control that exits 0 there is broken, and the repository has a
 test that says so:
 
@@ -65,7 +65,7 @@ citation against the source PDF and the page it claims. Quoted text
 without a page marker is reported as unverified rather than passed over.
 
 **Every check declares how much it examined**, and treats zero as a fault.
-The failure that taught us: a scanner that filtered out every path
+The failure that taught us this: a scanner that filtered out every path
 beginning with a dot, examined 195 files, kept none, and reported clean.
 
 **A control that cannot fail is not a control.** Each one ships the trap
@@ -83,9 +83,9 @@ system. What it found was fixed. See [ANONYMIZATION.md](ANONYMIZATION.md).
 The failures here are mapped onto the [OWASP Top 10 for Agentic
 Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
 where the mechanism matches: 7 partial mappings, 5 with none at all, 4 of
-the ten codes touched. The empty cells are in the table too, with the
-reason. See [MAPPING.md](MAPPING.md), and [INCIDENTS.md](INCIDENTS.md) for
-the ledger the numbers come from.
+the ten codes touched. The empty cells appear in the table too, each
+with its reason. See [MAPPING.md](MAPPING.md), and
+[INCIDENTS.md](INCIDENTS.md) for the ledger the numbers come from.
 
 The name is the taxonomy's own: *"Implement blast-radius guardrails such
 as quotas, progress caps, circuit breakers between planner and executor"*
@@ -94,8 +94,9 @@ as quotas, progress caps, circuit breakers between planner and executor"*
 ## What this is not
 
 Not a framework, and nothing here replaces your runtime. Not a survey of
-other people's links. Not a claim about how often agents are attacked —
-only a record of eighteen times these five were not.
+other people's links. Not a claim about how often agents are attacked
+anywhere else. This is a record of eighteen failures on five deployments,
+and an attacker appears in none of them.
 
 Italian summary: [README.it.md](README.it.md). Defects reported upstream:
 [REPORTED-UPSTREAM.md](REPORTED-UPSTREAM.md).

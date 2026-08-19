@@ -14,7 +14,7 @@ with no bearing on its work at all — home automation, academic paper
 writing. Twelve days later a second update did it again across every
 profile: one went **45 → 89** in a single evening.
 
-One of those skills measures **102,716 characters**. The runtime stops
+One of those skills runs to **102,716 characters**. The runtime stops
 returning a skill's body past 100,000, so an agent that loads it receives
 nothing and carries on working **without the instructions it believes it
 is following**. No error is raised at any layer.
@@ -37,10 +37,10 @@ update kept reporting success, and the only observable symptom was work
 quietly done under the wrong instructions.
 
 Two things went right and are worth recording, because they set the
-baseline for the next update: no archived skill was resurrected — cross
-checking active names against archived ones gave zero overlap across all
-five deployments — and nothing installed by the second update exceeded
-the readable-size limit.
+baseline for the next update: no archived skill was resurrected —
+cross-checking active names against archived ones gave zero overlap
+across all five deployments — and nothing installed by the second
+update exceeded the readable-size limit.
 
 ## The control
 
@@ -64,7 +64,7 @@ the readable-size limit.
   and a local patch whose target file moved so that the reapply silently
   failed. A fixture with only missing files would pass a guard that never
   looks at sizes.
-- The check that closed the orphan case is worth stealing: grep the
+- The check that closed the orphan case is worth stealing: grep for the
   patched string in the file that should now contain it. A patch that
   reports as applied and cannot be found in the file was never applied.
 

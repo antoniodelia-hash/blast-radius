@@ -30,7 +30,7 @@ staffing, and whether an agent is judged to be working.
 ## The control
 
 Every parser counts **two** numbers: the lines that *should* have been of
-interest, and the lines it failed to attach. Above a declared threshold —
+interest, and the lines it failed to match. Above a declared threshold —
 1% for that scorecard — it stops with an error instead of answering.
 
 Getting the first number is the part people skip. Count the lines

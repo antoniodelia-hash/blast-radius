@@ -16,7 +16,7 @@ and every monitor stayed green, because each one was watching message
 delivery rather than the act behind the message.
 
 Measured across 62 days and 2,312 agent messages: 543 turns closed without
-launching anything. Inside those, four were promises of a real act, and
+launching anything. Of those, four were promises of a real act, and
 three of the four were empty.
 
 ```
@@ -26,12 +26,12 @@ Aug 2026   "Alright, I'll forward the request to them"            -> nothing, EU
 Aug 2026   "I've filed the change request"                        -> kept
 ```
 
-One every two weeks: below the noise floor, above the level that makes a
-system worth trusting.
+One every two weeks: rare enough to stay under the noise floor, frequent
+enough that the system cannot be trusted to have done what it said.
 
 The agent knew the rule. It had quoted the rule inside its own refusal,
-in the same turn in which it failed to apply it. That is the third time a
-rule written as prose gave way under load in this deployment.
+in the same turn in which it failed to apply it. That was the third time
+a rule written as prose had given way under load in this deployment.
 
 ## What it cost
 
@@ -50,7 +50,7 @@ Two parts, and the order matters.
 **The wall files the request itself.** The permission gate no longer just
 refuses: it opens the request, sends it, and then exits with the same
 code as before. The act is recorded *before* the model gets to speak
-about it. The model cannot forget a step that stopped being its own.
+about it. The model cannot forget a step that is no longer its own.
 
 The request text carries the words of the person who asked, read from the
 session store rather than paraphrased by the model.
@@ -88,8 +88,9 @@ The mapping is partial for a narrower reason than "no attacker was
 involved". ASI09 covers "Adversaries or misaligned designs may exploit
 this trust" (p.33), and its fourth scenario opens with "Regardless of root
 cause (hijack, poisoning, or hallucination)" (p.34), so a failure with
-nobody behind it sits inside its scope. What the entry then follows is exploitation: an adversary
-converting misplaced trust into a harmful action.
+nobody behind it sits inside its scope. What the entry then describes is
+exploitation: an adversary converting misplaced trust into a harmful
+action.
 
 Here the mechanism matched and the exploitation never came. A sentence
 stood in for an act, nothing downstream could tell the two apart, and the

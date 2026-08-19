@@ -15,9 +15,9 @@ open windows, and the agent had no need to be malicious to climb through
 one: writing SQL is a reasonable way to solve a problem when the script
 refuses.
 
-A review found the sharpest case: **the table holding money had no cover
-at all**. Eighteen rows written and three deleted over two days, with no
-record anywhere of what had made those changes.
+A review found the sharpest case: **the table holding money had no
+audit trail at all**. Eighteen rows written and three deleted over two
+days, with no record anywhere of what had made those changes.
 
 ## What it cost
 
@@ -50,7 +50,7 @@ freshness window of a legitimate script inherits a signature that still
 looks current, and escapes the flag. It remains on the record for
 later analysis. The stronger version — a signature held per connection so
 that an unsigned write **fails** instead of being noted — waits until the
-register has shown for some weeks that every legitimate channel really
+register has shown for a few weeks that every legitimate channel really
 does pass through the signing path. The register itself is what will show
 that.
 

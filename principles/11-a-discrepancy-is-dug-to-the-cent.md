@@ -58,8 +58,8 @@ A chain, where each link has a named recipient.
   proposed correction, does the total match the reference exactly? A fix
   that improves the number without landing on it has found something else.
 - The register's own count is the sentinel: cases opened, cases closed,
-  cases open longer than a declared period. Zero cases in a month is worth
-  a look at whether the chain is still wired.
+  cases open longer than a declared period. Zero cases in a month is a
+  reason to check whether the chain is still wired.
 
 ## OWASP mapping
 

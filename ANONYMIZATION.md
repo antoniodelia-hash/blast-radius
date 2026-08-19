@@ -33,10 +33,7 @@ follow than their own judgement at midnight.
 ## Trade vocabulary is an identifier
 
 Sector plus vocabulary plus region reconstructs a company faster than the
-name does. A reader who knows the industry needs three specific nouns.
-Terms get translated up one level of abstraction — far enough to break the
-fingerprint, close enough that the mechanism still makes sense.
-
+name does. A reader who knows the industry needs only three specific nouns.
 The rule is to raise each term one level of abstraction: far enough to
 break the fingerprint, close enough that the mechanism still makes sense.
 Named processes become *an outsourced step*. Quantities in trade units

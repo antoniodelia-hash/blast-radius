@@ -68,4 +68,4 @@ mode the OWASP taxonomy covers; none of them involves anyone hostile.
 Two cards carry no ledger row. Card 08 is the near miss above. The
 principle held back from the twelve — two engines answering the same
 question — comes from a synthetic dataset, and belongs in neither table
-until it is re-anchored on its production twin.
+until it is re-anchored to its production twin.

@@ -50,7 +50,7 @@ Three properties matter more than the numbers:
 - **The vendor's own instruction files are exempt**, and the exemption is
   decided by membership in the vendor manifest rather than by filename.
   They are used, the system prompt requires them, and a diet applied to
-  them would be erased by the next update anyway.
+  them would be undone by the next update anyway.
 
 A second, separate sentinel measures every instruction file in the active
 tree against the runtime's readable-size limit, which sits well above the
@@ -67,7 +67,7 @@ what arrives from elsewhere.
   every threshold (must be exempt), a write that lands between the two
   lines (must pass **and** be marked), and one over the hard ceiling.
 - **The lesson that cost the most here was about evidence, not code.**
-  The hard ceiling was originally set from a claim that deposits were
+  The hard ceiling was originally set from a claim that writes were
   being refused every day for a week. The real count was 55 refusals,
   **all of them on a single day**, and none in the week that followed.
   The file had been sitting near the wall without ever hitting it. Any

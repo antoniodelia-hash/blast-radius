@@ -36,8 +36,8 @@ Two defences, in series, each covering what the other misses.
 
 - **The payload filter.** Only the first line of the notes field is shown,
   cut to 300 characters, and any item whose first line contains a monetary
-  amount drops out of the list entirely. Message went from 4,803 to 2,771
-  characters, zero amounts, both useful questions preserved.
+  amount drops out of the list entirely. The message went from 4,803 to
+  2,771 characters, zero amounts, both useful questions preserved.
 - **The scope guard.** The finished text is re-read immediately before
   sending. A monetary amount anywhere in it stops the send with a
   **dedicated exit code**, and a human receives the offending line. This
@@ -78,4 +78,5 @@ and prose does not run.
 
 The entry expects a privilege boundary crossed by an attacker. Here the
 system crossed its own boundary while doing exactly what it was asked, and
-a rate limit on an unrelated platform was the only thing in the way.
+a message-length limit on an unrelated platform was the only thing in the
+way.

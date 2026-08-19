@@ -26,21 +26,21 @@ both are the same `if` with no `else`.
 
 ## What it cost
 
-Nothing: this one was caught at design time, which is the only card here
-that was. It is included because the cost of missing it would have been
-the largest, and because the shape is general enough to find elsewhere.
+Nothing: this one was caught at design time — the only card here that
+was. It is included because the cost of missing it would have been the
+largest, and because the shape is general enough to find elsewhere.
 
 ## The control
 
 - **The rule moved into identity resolution itself**, rather than into
   each guard. Every guard passes through that one function, and a
-  threshold belongs in one place.
+  checkpoint belongs in one place.
 - **Each door declares itself.** Callers set a channel marker; from the
   web and the API an identity is mandatory, and its absence blocks with a
   dedicated exit code. Maintenance keeps the permissive branch, now
   explicitly and by name.
 - **The positive corollary was verified, not assumed:** with the real
-  identity propagated, the guards that already existed applied themselves.
+  identity propagated, the guards that already existed took effect.
   A user opening the dashboard sees the job list **without** the accrued,
   invoiced, and margin columns, and nobody wrote a line of web-specific
   permission code to make that happen.
