@@ -25,6 +25,7 @@ Exit codes
 """
 
 import os
+import re
 import subprocess
 import sys
 
@@ -67,8 +68,23 @@ def main():
         )
         code = result.returncode
         crashed = "Traceback (most recent call last)" in result.stderr
-        if code == FIXTURE_FOUND_ITS_FAULT and not crashed:
-            print("ok    %-28s --fixture found its planted fault" % relative)
+        output = result.stdout + result.stderr
+        # 86 alone is a password a hollow fixture can say. A fixture that
+        # ran has also declared how much it examined, so the contract asks
+        # for the evidence rather than the announcement.
+        declared = re.search(r"examined=(\d+)", output)
+        examined_zero = bool(declared) and declared.group(1) == "0"
+
+        if code == FIXTURE_FOUND_ITS_FAULT and not crashed and declared and not examined_zero:
+            print("ok    %-28s --fixture found its planted fault (examined=%s)"
+                  % (relative, declared.group(1)))
+        elif code == FIXTURE_FOUND_ITS_FAULT and not crashed and not declared:
+            failures.append((relative, "--fixture exited %d without declaring what it "
+                                       "examined: 86 is not evidence"
+                             % FIXTURE_FOUND_ITS_FAULT))
+        elif code == FIXTURE_FOUND_ITS_FAULT and examined_zero:
+            failures.append((relative, "--fixture exited %d having examined nothing"
+                             % FIXTURE_FOUND_ITS_FAULT))
         elif crashed:
             last = [l for l in result.stderr.strip().splitlines() if l.strip()]
             failures.append((relative, "--fixture crashed: %s"

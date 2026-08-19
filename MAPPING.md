@@ -64,9 +64,9 @@ six have none, and the reason is part of the map.
 
 ## On the empty column
 
-The adversary column holds twelve `no` values. That is a fact about these
-sixteen incidents, stated as measured, and it carries no claim about how
-often attacks occur elsewhere.
+The adversary column holds twelve `no` values. That is a fact about the
+eighteen incidents in [INCIDENTS.md](INCIDENTS.md), stated as measured,
+and it carries no claim about how often attacks occur elsewhere.
 
 The Agentic Top 10 does account for failures with nobody behind them.
 ASI10 is described as "autonomous misalignment that emerges without active

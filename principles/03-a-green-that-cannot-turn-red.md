@@ -41,8 +41,12 @@ Three design choices carry the weight:
 
 - **It declares what it examined.** Profiles and jobs, counted, on every
   run. Zero jobs examined exits 2 and calls itself invalid.
-- **It exits 0 even when it finds anomalies**, and puts them on stdout.
-  A scheduled check that fails loudly starts reporting on itself.
+- **The scheduled sentinel exits 0 even when it finds anomalies**, and puts
+  them on stdout: a cron job that exits non-zero starts reporting on
+  itself, and the report is the point. The control shipped here does the
+  opposite and exits 1 on findings, because you run it by hand or from CI
+  and there the exit code is the answer. Same logic, two callers, two
+  conventions — stated because the mismatch would otherwise read as a bug.
 - **It reads the artifact, not the summary.** The status field is the
   thing that lied, so the sentinel goes to the output file.
 

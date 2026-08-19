@@ -80,24 +80,37 @@ def line_digest(line):
     return hashlib.sha256(" ".join(line.split()).encode("utf-8")).hexdigest()[:16]
 
 
-def load_allowlist(path):
-    """Return {digest: (path, reason)}. A missing file means no exceptions."""
+def load_allowlist(path, reader=None):
+    """Return {(digest, path): reason}.
+
+    The key carries the pathname on purpose. Keying on the digest alone let
+    an exception approved for one file silence the same line anywhere else,
+    which is an exception nobody granted.
+    """
     entries = {}
-    if not path or not os.path.exists(path):
+    if not path:
         return entries
-    with open(path, encoding="utf-8") as handle:
-        for raw in handle:
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.split(None, 2)
-            if len(parts) < 3:
-                raise ValueError("allowlist entry needs digest, path and reason: %r" % line)
-            entries[parts[0]] = (parts[1], parts[2])
+    if reader is not None:
+        text = reader(path)
+        if text is None:
+            return entries
+    else:
+        if not os.path.exists(path):
+            return entries
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(None, 2)
+        if len(parts) < 3:
+            raise ValueError("allowlist entry needs digest, path and reason: %r" % line)
+        entries[(parts[0], parts[1])] = parts[2]
     return entries
 
 
-def scan_text(text, literals, words, regexes, allowlist=None):
+def scan_text(text, literals, words, regexes, allowlist=None, path=None):
     """Return (hits, allowed): lists of (lineno, rule, matched_text).
 
     A line carrying the allow marker still gets scanned; its matches move to
@@ -109,8 +122,9 @@ def scan_text(text, literals, words, regexes, allowlist=None):
     for lineno, line in enumerate(text.splitlines(), 1):
         lowered = line.lower()
         if ALLOW_MARKER in lowered:
-            # The marker asks for an exception; the register grants it.
-            if line_digest(line) in allowlist:
+            # The marker asks for an exception; the register grants it, for
+            # this line in this file and nowhere else.
+            if (line_digest(line), path) in allowlist:
                 bucket = allowed
             else:
                 bucket = unregistered
@@ -150,11 +164,16 @@ def collect_files(paths):
 
 
 def staged_files():
+    """Paths git is about to commit, NUL-delimited.
+
+    Splitting on newlines drops a path that contains one, and a filename is
+    allowed to contain almost anything.
+    """
     out = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+        ["git", "diff", "--cached", "-z", "--name-only", "--diff-filter=ACMR"],
         capture_output=True, text=True, check=True,
     ).stdout
-    return [p for p in out.splitlines() if p]
+    return [p for p in out.split("\0") if p]
 
 
 def staged_content(path):
@@ -175,7 +194,8 @@ def staged_content(path):
 def run_scan(files, denylist_path, label, reader=None, allowlist_path=None):
     """`reader` returns the text for a path; None means read it from disk."""
     literals, words, regexes = load_denylist(denylist_path)
-    allowlist = load_allowlist(allowlist_path)
+    allowlist = load_allowlist(allowlist_path, reader)
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     rules = len(literals) + len(words) + len(regexes)
     problems = []
     allowed_total = 0
@@ -189,11 +209,21 @@ def run_scan(files, denylist_path, label, reader=None, allowlist_path=None):
             try:
                 with open(path, encoding="utf-8") as handle:
                     text = handle.read()
-            except (UnicodeDecodeError, OSError):
+            except UnicodeDecodeError:
+                # Fail closed: a file this scanner cannot decode is a file it
+                # did not check, and silence there is indistinguishable from
+                # a clean result.
+                problems.append((path, 0, "undecodable", "not valid UTF-8: not scanned"))
+                examined += 1
+                continue
+            except OSError as error:
+                problems.append((path, 0, "unreadable", str(error)))
+                examined += 1
                 continue
         examined += 1
+        relative = os.path.relpath(os.path.abspath(path), repo_root)
         hits, allowed, unregistered = scan_text(
-            text, literals, words, regexes, allowlist)
+            text, literals, words, regexes, allowlist, relative)
         allowed_total += len(allowed)
         for lineno, rule, matched in hits:
             problems.append((path, lineno, rule, matched))
@@ -298,7 +328,10 @@ def run_fixture():
                 for line in body.splitlines():
                     if ALLOW_MARKER in line.lower() and "registered" in line.lower():
                         handle.write("%s %s approved bait line\n"
-                                     % (line_digest(line), relative))
+                                     % (line_digest(line),
+                                        os.path.relpath(os.path.join(tree, relative),
+                                                        os.path.dirname(os.path.dirname(
+                                                            os.path.abspath(__file__))))))
         examined, problems = run_scan(files, denylist_path, "fixture",
                                       allowlist_path=allowlist_path)
 
@@ -377,6 +410,12 @@ def main():
             return 0
         files = [p for p in staged
                  if os.path.splitext(p)[1].lower() in TEXT_SUFFIXES]
+        skipped = [p for p in staged if p not in files]
+        if skipped:
+            print("%-22s %d staged files not scanned by suffix:"
+                  % ("secret-scan", len(skipped)))
+            for p in skipped[:10]:
+                print("   unscanned: %s" % p)
         if not files:
             print("%-22s examined=0 problems=0  (%d staged files, none of them text)"
                   % ("secret-scan", len(staged)))
@@ -388,7 +427,13 @@ def main():
         examined, problems = run_scan(
             files, denylist_path, "secret-scan",
             reader=staged_content if args.staged else None,
-            allowlist_path=args.allowlist or os.path.join(here, "allowlist.txt"))
+            # In --staged mode the register is read through `git show :path`,
+            # which wants a repository-relative path. Handing it an absolute
+            # one made the read fail silently and the register come back
+            # empty, so every legitimate exception looked unregistered.
+            allowlist_path=(args.allowlist
+                            or ("tools/allowlist.txt" if args.staged
+                                else os.path.join(here, "allowlist.txt"))))
     except ValueError as error:
         print("unusable denylist: %s" % error)
         return 2

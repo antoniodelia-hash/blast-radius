@@ -43,7 +43,11 @@ A number that cannot be recomputed from a list is an assertion.
 | 17 | Aug 2026 | 12 | Written state existed only inside a namespace, never on disk | 1 | no |
 | 18 | Aug 2026 | 12 | A conclusion about the filesystem was drawn from the wrong view | 1 | no |
 
-**Incidents: 18.** Occurrences behind them: 40.
+**Incidents: 18.** Occurrences behind them: 41.
+
+Both numbers are recomputed from the table above, and the second one is
+why this file exists: the first draft of this page declared 40 while the
+column summed to 41.
 
 ## Near misses
 

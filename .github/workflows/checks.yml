@@ -73,11 +73,19 @@ jobs:
           printf 'token = "%s_%s"\n' "$prefix" "$body" > planted.py
           git add planted.py
           git -c user.email=canary@example.invalid -c user.name=canary commit -qm planted
-          if gitleaks git . --no-banner --redact; then
-            echo "canary failed: the scanner walked past a planted credential"
-            exit 1
-          fi
-          echo "canary ok: the planted credential was caught"
+          set +e
+          gitleaks git . --no-banner --redact
+          code=$?
+          set -e
+          # Exit 1 is the only outcome that means "a secret was found". Exit 0
+          # means the scanner looked and saw nothing, and anything else means
+          # it did not run. Reading "not zero" as success made a missing
+          # binary report canary ok, which was verified.
+          case "$code" in
+            1) echo "canary ok: the planted credential was caught" ;;
+            0) echo "canary failed: the scanner walked past a planted credential"; exit 1 ;;
+            *) echo "canary failed: the scanner did not run (exit $code)"; exit 1 ;;
+          esac
 
       - name: the client denylist scanner can still fail
         # The real denylist holds the strings this repository must never

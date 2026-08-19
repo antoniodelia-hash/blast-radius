@@ -64,8 +64,46 @@ def comparable(text):
     This cost a real false alarm: the checker rejected a correct citation,
     and believing it would have meant editing a quotation that was right.
     Hyphens are therefore removed on both sides before comparing.
+
+    The rule lives in comparable_with_offsets() and this function borrows
+    it. Keeping two implementations in step is the defect this repository
+    holds back as a principle: two engines answering the same question
+    disagree eventually, and here they did -- one found a quotation the
+    other could not locate.
     """
-    return re.sub(r"[-\u2010\u2011]\s*", "", flatten(text)).lower()
+    return comparable_with_offsets(text)[0]
+
+
+def comparable_with_offsets(raw):
+    """Like comparable(), keeping the source index of each kept character.
+
+    Comparison and page location have to use the same yardstick. When one
+    tolerated hyphens and the other did not, a genuine quotation was found
+    and then declared unlocatable, which is a fail-open dressed as rigour.
+    """
+    chars, offsets = [], []
+    previous_was_space = False
+    just_dropped_hyphen = False
+    for index, char in enumerate(raw):
+        if char in "-\u2010\u2011":
+            just_dropped_hyphen = True
+            continue
+        if char.isspace():
+            # Whitespace right after a dropped hyphen goes too, so that a
+            # word broken at the margin closes up. This mirrors comparable()
+            # exactly: two functions with different rules is how the check
+            # found a genuine quotation and then failed to locate it.
+            if just_dropped_hyphen or previous_was_space:
+                continue
+            chars.append(" ")
+            offsets.append(index)
+            previous_was_space = True
+        else:
+            chars.append(char.lower())
+            offsets.append(index)
+            previous_was_space = False
+            just_dropped_hyphen = False
+    return "".join(chars), offsets
 
 
 def flatten_with_offsets(raw):
@@ -96,22 +134,19 @@ def page_index(raw):
     return [(m.start(), int(m.group(1))) for m in PAGE_FOOTER.finditer(raw)]
 
 
-def pages_of(offsets, flat, pages, needle):
+def pages_of(offsets, haystack, pages, needle):
     """Every page the quotation appears on, not just the first.
 
     Using the first occurrence quietly rewards a citation that names a
-    later, correct page while the tool checks an earlier one.
+    later, correct page while the tool checks an earlier one. Both the
+    haystack and the needle arrive already reduced by comparable(), so a
+    word broken at a hyphen is located like any other.
     """
     found = []
-    target = flatten(needle)
+    target = comparable(needle)
     start = 0
     while True:
-        position = flat.find(target, start)
-        if position < 0:
-            # Same text, broken by a hyphen at the line end: fall back to
-            # locating a long unbroken prefix.
-            prefix = " ".join(target.split()[:4])
-            position = flat.find(prefix, start) if len(prefix) > 12 else -1
+        position = haystack.find(target, start)
         if position < 0 or position >= len(offsets):
             break
         exact = offsets[position]
@@ -142,8 +177,8 @@ def collect_documents(paths):
 
 def run_check(documents, source_text, label):
     raw = source_text
-    flat, offsets = flatten_with_offsets(raw)
-    comparable_flat = comparable(raw)
+    flat, _ = flatten_with_offsets(raw)
+    comparable_flat, comparable_offsets = comparable_with_offsets(raw)
     pages = page_index(raw)
 
     examined = 0
@@ -168,11 +203,19 @@ def run_check(documents, source_text, label):
                     detail = "not found in the source document"
                 problems.append((path, quotation, detail))
                 continue
-            actual = pages_of(offsets, flat, pages, quotation)
+            actual = pages_of(comparable_offsets, comparable_flat, pages, quotation)
+            if not actual:
+                # Found by the hyphen-tolerant comparison and not locatable
+                # on any page: the claimed page was never actually checked,
+                # and silence there is a pass nobody earned.
+                problems.append((path, quotation,
+                                 "present in the source but not locatable: "
+                                 "p.%s was not verified" % claimed))
+                continue
             # Exact match, on any of the pages where the text appears. The
             # earlier tolerance of one page would have accepted a citation
             # to p.13 for text sitting on p.12.
-            if actual and int(claimed) not in actual:
+            if int(claimed) not in actual:
                 where = ", ".join("p.%d" % p for p in sorted(set(actual)))
                 problems.append((path, quotation,
                                  "claims p.%s, found on %s" % (claimed, where)))

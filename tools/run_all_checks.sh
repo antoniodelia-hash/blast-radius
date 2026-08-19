@@ -34,14 +34,16 @@ run "mapping counters" python3 "$root/tools/mapping_check.py"
 # question (the module inventory arrived in 3.10), which is reported as
 # skipped rather than passed: the two must never look alike.
 printf '\n=== standard library only\n'
-python3 "$root/tools/import_check.py" || status=$?
-if [ "${status:-0}" = "2" ]; then
+# The status of this check only. Reusing a variable another check had left
+# behind reported a passing check as failed.
+import_status=0
+python3 "$root/tools/import_check.py" || import_status=$?
+if [ "$import_status" = "2" ]; then
     echo "skipped: run this on Python 3.10 or newer, or let CI do it"
-elif [ "${status:-0}" != "0" ]; then
-    echo "FAILED (standard library only, exit ${status})"
+elif [ "$import_status" != "0" ]; then
+    echo "FAILED (standard library only, exit $import_status)"
     failed=1
 fi
-unset status
 
 if [ -n "$source_text" ]; then
     run "quotations against the source" \

@@ -1,27 +1,42 @@
 #!/bin/sh
 # blast-radius: two passes, because they are blind in different places.
 #   secret_scan.py  knows who the client is; no generic tool can.
-#   gitleaks        knows what a credential looks like; ours knows five shapes.
-# Both must pass. Either one alone leaves a hole that was measured, not guessed.
-root=$(git rev-parse --show-toplevel)
+#   gitleaks        knows what a credential looks like; ours knows six shapes.
+#
+# Fail closed throughout. An earlier version let the commit through when
+# gitleaks was missing and when either tool returned an exit code it did not
+# recognise, which is the same as having no hook on the machines where that
+# happened.
+root=$(git rev-parse --show-toplevel) || exit 1
 fail=0
 
 python3 "$root/tools/secret_scan.py" --staged
-status=$?
-if [ "$status" -eq 1 ]; then
-    echo "blocked: the lines above name something the repo must not name."
-    fail=1
-elif [ "$status" -eq 2 ]; then
-    echo "blocked: the scanner examined nothing, or has no denylist."
-    echo "a silent check is indistinguishable from a broken one."
-    fail=1
-fi
+case $? in
+    0) ;;
+    1) echo "blocked: the lines above name something the repo must not name."
+       fail=1 ;;
+    2) echo "blocked: the scanner examined nothing, or has no denylist."
+       echo "a silent check is indistinguishable from a broken one."
+       fail=1 ;;
+    *) code=$?
+       echo "blocked: the client scanner returned an unexpected exit code."
+       echo "an outcome nobody planned for is not a pass."
+       fail=1 ;;
+esac
 
 if command -v gitleaks >/dev/null 2>&1; then
-    gitleaks git --staged --redact --no-banner "$root" || fail=1
+    gitleaks git --staged --redact --no-banner "$root"
+    case $? in
+        0) ;;
+        1) echo "blocked: gitleaks found a credential in what you are committing."
+           fail=1 ;;
+        *) echo "blocked: gitleaks did not run to completion."
+           fail=1 ;;
+    esac
 else
-    echo "gitleaks missing: credential scanning did not run on this commit."
-    echo "install it, or accept that only the client denylist was checked."
+    echo "blocked: gitleaks is not installed, so credentials were not checked."
+    echo "install it, or run: git commit --no-verify -- and own that choice."
+    fail=1
 fi
 
 exit $fail
