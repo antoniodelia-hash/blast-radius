@@ -4,6 +4,26 @@ Some of what is described here is a defect in software other people
 maintain. Those go to the maintainers first, and appear in this repository
 with a link to the report.
 
+## A health check that looks from the wrong place
+
+**Status: open, awaiting triage.** Reported 19 August 2026,
+[hermes-agent#90047](https://github.com/NousResearch/hermes-agent/issues/90047).
+
+The runtime ships a diagnostic that checks configured hooks: the script
+exists and is executable, it is on the allowlist, it has not changed since
+approval, it answers a synthetic payload. It is a good tool and card 04
+would be poorer without it.
+
+It runs from the shell you type it in. The gateway, running as a hardened
+service, sees a different filesystem — so a hook command in a directory
+that was never mapped into the service's view is present for the diagnostic
+and absent for the process that needs it. The check reports green, and the
+hook never fires.
+
+Reported before this repository was published, which is the order these
+things belong in: the maintainers know what card 04 says, on the same day
+the card became public.
+
 ## Sessions that never expire
 
 **Status: open, triaged.** Reported 17 July 2026.

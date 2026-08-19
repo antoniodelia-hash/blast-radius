@@ -8,7 +8,10 @@
 #   tools/run_all_checks.sh path/to/owasp.txt  # also verify every quotation
 set -e
 root=$(cd "$(dirname "$0")/.." && pwd)
-source_text="$1"
+# The source document now travels with the repository, under its own licence
+# in third_party/. A check that only runs when somebody remembers to point it
+# at a file is a check that stops running.
+source_text="${1:-$root/third_party/owasp-agentic-top10-2026.txt}"
 failed=0
 
 run() {
@@ -50,7 +53,7 @@ if [ -n "$source_text" ]; then
         python3 "$root/tools/citation_check.py" "$source_text"
 else
     echo "\n=== quotations against the source"
-    echo "skipped: no source text given. The OWASP PDF is not redistributed"
+    echo "skipped: source text not found at $source_text"
     echo "here, so this check runs where the extracted text is available:"
     echo "  pdftotext -layout owasp-agentic-2026.pdf owasp.txt"
     echo "  tools/run_all_checks.sh owasp.txt"

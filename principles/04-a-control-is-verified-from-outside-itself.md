@@ -31,6 +31,16 @@ At the time of discovery, three of the five deployments had an empty hook
 section, no allowlist, and no size sentinel watching their instruction
 files. The protection was believed to be fleet-wide.
 
+**The runtime's own diagnostic reports this hook as healthy.** It checks
+that the script exists and is executable, and it does so from the shell it
+was typed in — where the file is genuinely there. The gateway looks from
+inside its own view of the filesystem, where it is not. Green on one side,
+absent on the other, and the write goes through.
+
+That part is reported upstream:
+[hermes-agent#90047](https://github.com/NousResearch/hermes-agent/issues/90047),
+19 August 2026. The maintainers know what this card says.
+
 ## What it cost
 
 Nothing yet, which is the whole problem. This is the failure class that
