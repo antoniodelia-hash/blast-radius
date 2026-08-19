@@ -43,8 +43,7 @@ Card files are named after these numbers. All twelve are written.
 disagreeing — is documented and kept out of the twelve for now. Its
 sharpest numbers come from a synthetic dataset, and a cost figure that
 did not happen has no place next to the ones in the ledger, which did. It
-returns once
-re-anchored to its production twin.
+returns once re-anchored to its production twin.
 
 ## Where the taxonomy goes and we do not follow
 
