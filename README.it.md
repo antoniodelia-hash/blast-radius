@@ -4,7 +4,8 @@
 di un'azienda.**
 
 Nascono da 18 guasti accaduti fra giugno e agosto 2026 a cinque assistenti
-automatici installati in una PMI manifatturiera. Ogni guasto ha una data,
+automatici in un contesto manifatturiero di piccole dimensioni: alcuni
+presso lo stesso cliente, uno di uso personale. Ogni guasto ha una data,
 un costo o un rimedio, e un programmino che chiunque può scaricare e
 provare.
 
@@ -66,8 +67,10 @@ vivo. I programmini si scaricano e girano senza installare niente: servono
 a provare i controlli sul proprio sistema, in due minuti.
 
 Il nome del cliente non compare, e la cosa è stata messa alla prova sul
-serio: un modello esterno ha ricevuto solo il testo pubblico con la
-consegna di scoprire l'azienda. Quello che ha trovato è stato corretto.
+serio: due modelli esterni hanno ricevuto solo il testo pubblico con la
+consegna di scoprire l'azienda. Non ci sono riusciti; quello che li aveva
+avvicinati — a partire dalla tabella che avrebbe dovuto nascondere il
+lessico di mestiere, e che invece lo pubblicava — è stato riscritto.
 
 ## Chi l'ha scritto
 
