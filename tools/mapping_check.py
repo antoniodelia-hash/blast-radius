@@ -110,14 +110,34 @@ def check(text, label):
     for name in unknown:
         problems.append(("unreadable verdict", name))
 
-    print("%-22s examined=%d problems=%d" % (label, len(rows), len(problems)))
+    # The prose that summarises the counters is checked against them. It was
+    # the one surface nobody read: "seven of the ten" sat above a list of six
+    # through two external judgements.
+    mapped_codes = set()
+    for row in rows:
+        code = row.get("asi", "")
+        if code.upper().startswith("ASI"):
+            mapped_codes.add(code.upper()[:5])
+    counters = {
+        "principles": len(rows),
+        "mapped": len(mapped_codes),
+        "no_card": 10 - len(mapped_codes),
+    }
+    prose_examined, prose_problems = check_prose(text, counters)
+    for detail in prose_problems:
+        problems.append(("prose", detail))
+
+    print("%-22s examined=%d problems=%d prose_claims=%d"
+          % (label, len(rows), len(problems), prose_examined))
     for kind, detail in problems:
         print("   %-20s %s" % (kind, detail))
     return len(rows), problems
 
 
 # The real defect: thirteen rows under a header claiming twelve, with the
-# partial tally short by one, plus a row whose adversary column says yes.
+# partial tally short by one, a row whose adversary column says yes, and a
+# sentence claiming a different count from the table beneath it -- the last
+# one survived two external judgements because no check read the prose.
 FIXTURE = """# Mapping
 
     principles examined = 12    adversary present = 0
@@ -180,6 +200,52 @@ def run_fixture():
     print("\nthe drift between header and table was caught;")
     print("exiting 86: the code that means the fixture found the fault it planted")
     return FIXTURE_FOUND_ITS_FAULT
+
+
+WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+         "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+         "twelve": 12, "thirteen": 13, "eighteen": 18}
+
+
+def check_prose(text, counters):
+    """Compare the sentences that summarise the counters with the counters.
+
+    The machine-readable block and the table agreed while the prose above
+    them said "seven of the ten" over a list of six. Two judgements walked
+    past it, because every check read the numbers and none read the words.
+    """
+    problems = []
+    examined = 0
+
+    # Flatten first. The sentence this check exists for was wrapped between
+    # "the" and "ten", and the pattern below looks for a space -- so the
+    # check written to catch the error walked past it on the first run.
+    # Third time today that a line break defeated a check; the fix belongs
+    # wherever text is matched, not only where citations are.
+    text = re.sub(r"\s+", " ", text)
+
+    patterns = [
+        # "Six of the ten have no counterpart here"
+        (r"\b([A-Za-z]+) of the ten\b", "no_card",
+         "codes with no card"),
+        # "Four distinct codes carry cards"
+        (r"\b([A-Za-z]+) distinct codes carry cards\b", "mapped",
+         "distinct codes mapped"),
+        # "Twelve principles"
+        (r"\b([A-Za-z]+) principles\b", "principles", "principles"),
+    ]
+    for pattern, key, label in patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            word = match.group(1).lower()
+            if word not in WORDS:
+                continue
+            examined += 1
+            claimed = WORDS[word]
+            actual = counters.get(key)
+            if actual is not None and claimed != actual:
+                problems.append("prose says %s %s, the counters say %d"
+                                % (word, label, actual))
+    return examined, problems
 
 
 def main():

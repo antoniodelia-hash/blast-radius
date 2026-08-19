@@ -3,7 +3,8 @@
 **Field-tested containment for AI agents in production.**
 
 Twelve principles from 18 incidents and 1 near miss, recorded on five LLM
-agents running inside a manufacturing SME between June and August 2026.
+agent deployments in a small manufacturing setting between June and
+August 2026 — some of them at the same client, one in personal use.
 Every incident has a month, a cost or a remedy, and a control you can run.
 
 **In none of the eighteen was there an adversary.**

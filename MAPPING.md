@@ -47,11 +47,8 @@ re-anchored on its production twin.
 
 ## Where the taxonomy goes and we do not follow
 
-Seven of the ten entries have no counterpart here. Saying why is part of
-the map.
-
-Four distinct codes carry cards: ASI02, ASI03, ASI04, ASI09. The other
-six have none, and the reason is part of the map.
+Four distinct codes carry cards: ASI02, ASI03, ASI04, ASI09. **Six of the
+ten** have no counterpart here, and saying why is part of the map.
 
 | ASI | Title | Why no card |
 |---|---|---|
