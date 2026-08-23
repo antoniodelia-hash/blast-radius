@@ -18,3 +18,5 @@ fb284a8e40889e78 controls/budget_brake.py byte-size threshold that matches the j
 b262d81627a333a5 tools/secret_scan.py planted bait in a fixture, not a real secret
 ba5f595444849da7 tools/secret_scan.py documentation of the marker itself
 abf3d347ccf0c4b1 ANONYMIZATION.md documentation of the marker itself
+b7c82395698d7f37 tools/secret_scan.py planted bait in a fixture, not a real secret
+9b9e7e5958e71140 tools/secret_scan.py planted bait in a fixture, not a real secret

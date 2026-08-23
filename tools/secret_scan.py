@@ -35,9 +35,14 @@ import tempfile
 # test used to read a traceback as proof that the check works.
 FIXTURE_FOUND_ITS_FAULT = 86
 
+# `.jsonl` was missing here until 23 Aug 2026, found in the twin repository
+# judge-attestation: one execution log sat in that tree, the scanner dropped
+# it by suffix, and the totals still read as a complete pass. Session logs and
+# rollouts are exactly the shape that carries somebody's material. Nothing in
+# this repository has that suffix today, which is why nobody noticed.
 TEXT_SUFFIXES = {
-    ".md", ".txt", ".py", ".sh", ".yml", ".yaml", ".json", ".toml",
-    ".cfg", ".ini", ".html", ".css", ".js", ".ts", "",
+    ".md", ".txt", ".py", ".sh", ".yml", ".yaml", ".json", ".jsonl", ".ndjson",
+    ".toml", ".cfg", ".ini", ".html", ".css", ".js", ".ts", "",
 }
 
 
@@ -323,6 +328,23 @@ FIXTURE_FILES = [
         1,
     ),
     (
+        # An execution log. Until 23 Aug 2026 this suffix was outside
+        # TEXT_SUFFIXES, so a file of this shape was dropped in silence and
+        # the secret inside it never looked at.
+        ".hidden/rollout.jsonl",
+        '{"type":"session_meta","payload":{"token":"ghp_abcdefghijklmnopqrstuvwxyz02"}}\n',  # scan:allow -- bait
+        1,
+    ),
+    (
+        # A file the scanner is meant to drop by suffix, with a planted secret
+        # inside it. Its expected count is 0 because it is never opened, and
+        # that zero is load-bearing: add ".png" to TEXT_SUFFIXES and this line
+        # starts failing, which is the conversation you want to be forced into.
+        "assets/screenshot.png",
+        "ghp_abcdefghijklmnopqrstuvwxyz03\n",  # scan:allow -- bait inside a dropped file
+        0,
+    ),
+    (
         # Nothing here may fire. "chain" contains "ain", "similar" contains
         # "imi", 127.0.0.1 and 10.0.0.4 are non-routable, and "risk" talk is  scan:allow
         # ordinary English.
@@ -369,11 +391,25 @@ def run_fixture():
         print("\n--- fixture verdict ---")
         conforms = True
 
-        if examined != len(FIXTURE_FILES):
-            print("FAIL  examined %d files, the fixture holds %d" % (examined, len(FIXTURE_FILES)))
+        # The fixture seeds one file the scanner is meant to drop, so the
+        # expected count is computed from the suffix rule rather than from the
+        # length of the list. Comparing against the length alone is what let a
+        # dropped file pass unnoticed in the first place.
+        scannable = [rel for rel, _, _ in FIXTURE_FILES
+                     if os.path.splitext(rel)[1].lower() in TEXT_SUFFIXES]
+        if examined != len(scannable):
+            print("FAIL  examined %d files, %d of the %d seeded ones are scannable"
+                  % (examined, len(scannable), len(FIXTURE_FILES)))
             conforms = False
         else:
-            print("ok    every seeded file was examined, hidden and accented ones included (%d)" % examined)
+            print("ok    every scannable seeded file was examined, hidden, accented "
+                  "and .jsonl ones included (%d of %d)" % (examined, len(FIXTURE_FILES)))
+        if len(scannable) == len(FIXTURE_FILES):
+            print("FAIL  the fixture no longer seeds a file that must be dropped by suffix")
+            conforms = False
+        else:
+            print("ok    %d seeded file(s) dropped by suffix, as designed"
+                  % (len(FIXTURE_FILES) - len(scannable)))
 
         found_per_file = {}
         for path, _, _, _ in problems:
@@ -455,7 +491,26 @@ def main():
                   % ("secret-scan", len(staged)))
             return 0
     else:
-        files = collect_files(args.paths or [repo_root])
+        requested = args.paths or [repo_root]
+        files = collect_files(requested)
+        # A parser declares what it discarded. In --staged mode the files
+        # dropped by suffix were already printed; walking a tree they simply
+        # vanished, so `examined=N` looked complete while N was short.
+        candidates = []
+        for one in requested:
+            if os.path.isfile(one):
+                candidates.append(one)
+                continue
+            for base, dirnames, names in os.walk(one):
+                dirnames[:] = [d for d in dirnames
+                               if d not in (".git", "__pycache__", ".venv")]
+                candidates.extend(os.path.join(base, n) for n in names)
+        dropped = [p for p in candidates if p not in set(files)]
+        if dropped:
+            print("%-22s %d file(s) dropped by suffix, not scanned:"
+                  % ("secret-scan", len(dropped)))
+            for p in dropped[:10]:
+                print("   unscanned: %s" % p)
 
     try:
         examined, problems = run_scan(
