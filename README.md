@@ -76,7 +76,7 @@ and only a fixture carrying both can tell them apart.
 **The client is not identifiable, and that was tested adversarially.** An
 external model was given only the public text and asked to name the
 company, count the clients behind it, and use the text to attack a similar
-system. What it found was fixed. See [ANONYMIZATION.md](ANONYMIZATION.md).
+system. What it found was removed from the published text. See [ANONYMIZATION.md](ANONYMIZATION.md).
 
 ## Where the map runs out
 
