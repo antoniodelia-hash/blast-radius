@@ -31,6 +31,24 @@ At the time of discovery, three of the five deployments had an empty hook
 section, no allowlist, and no size sentinel watching their instruction
 files. The protection was believed to be fleet-wide.
 
+**The setting that should close the gate lives inside the gate.** The
+runtime does offer `fail_closed: true`, which turns a spawn error or a
+timeout into a refusal. It is read inside the hook's callback, and the
+callback only exists once the hook is registered. So a hook that never got
+wired up — because its command was invisible, or because the allowlist
+entry was missing — fails open while its configuration declares the
+opposite, and the option that was supposed to protect you is unreachable
+code.
+
+That correction came from someone else. A reader of the upstream report
+reproduced the same end state from a different trigger and made the point
+sharper than we had: enforcement of "fail closed" belongs at registration
+time, not only at fire time, or it keeps missing the cases where the hook
+never got wired up at all. Their report is
+[hermes-agent#100942](https://github.com/NousResearch/hermes-agent/issues/100942);
+across 13 profiles sharing one identical hooks block, 8 had no approval
+file, and those 8 were exactly the ones emitting the warning.
+
 **The runtime's own diagnostic reports this hook as healthy.** It checks
 that the script exists and is executable, and it does so from the shell it
 was typed in — where the file is genuinely there. The gateway looks from

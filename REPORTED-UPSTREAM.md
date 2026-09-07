@@ -6,8 +6,11 @@ repository with a link to the report.
 
 ## A health check that looks from the wrong place
 
-**Status: open, awaiting triage.** Reported 19 August 2026,
+**Status: open, reproduction accepted.** Reported 19 August 2026,
 [hermes-agent#90047](https://github.com/NousResearch/hermes-agent/issues/90047).
+A self-contained reproduction was added on 20 August — two runs of the same
+transient unit, differing by one property that hides the hook directory —
+and the `needs-repro` label came off.
 
 The runtime ships a diagnostic that checks configured hooks: the script
 exists and is executable, it is on the allowlist, it has not changed since
@@ -23,6 +26,25 @@ hook never fires.
 Reported before this repository was published, which is the order these
 things belong in: the maintainers knew what card 04 says on the same day
 the card became public.
+
+**What the thread added, and what it took away.** A contributor confirmed
+the second finding — the diagnostic exits 0 even while printing issues, so
+nothing can gate on it — and offered a patch. One suggestion in the
+original report had to be withdrawn: `fail_closed: true` already ships, and
+asking for it was asking for something that exists. What survived the
+correction is the divergence itself, which the setting does not touch: set
+`fail_closed` on that hook and the diagnostic still reports healthy from
+the host for a command the service cannot reach.
+
+Then someone arrived from another direction. [hermes-agent#100942](https://github.com/NousResearch/hermes-agent/issues/100942),
+opened 2 September 2026, reaches the same end state through a missing
+approval file rather than a hidden path, and carries the observation that
+sharpened card 04: `fail_closed` is read inside a registered hook's
+callback, so a hook that was never registered fails open regardless of what
+its configuration says.
+
+Two independent triggers, one gap. That is worth more than either report
+alone, and it is the reason this file exists.
 
 ## Sessions that never expire
 
