@@ -6,7 +6,7 @@ A hook can appear in a configuration file and never be registered. Reading
 the configuration answers "was it declared". This answers "is it running",
 which is a different question with the same shape of output.
 
-The four failure modes it separates, all observed:
+The failure modes it separates, the first four all observed:
 
   declared-not-registered   the config line is there, the runtime dropped it
                             (a missing allowlist, a prompt with no terminal)
@@ -215,9 +215,22 @@ FIXTURE = {
          "command_visible_in_namespace": True,
          "config_mtime": "2026-08-18T09:00:00", "process_started_at": "2026-08-17T04:22:00"},
         # Must stay silent: declared, registered, visible, process newer.
+        # Both times lack a zone, which is the ordinary collector: they come
+        # off one clock and are compared as they are.
         {"name": "brake-delta", "registered_in_process": True,
          "command_visible_in_namespace": True,
          "config_mtime": "2026-08-16T09:00:00", "process_started_at": "2026-08-17T04:22:00"},
+        # An epoch against a zoneless string, two hours apart -- which is
+        # exactly one offset. The order of the two events is a guess, and a
+        # guess is never reported as active.
+        {"name": "brake-epsilon", "registered_in_process": True,
+         "command_visible_in_namespace": True,
+         "config_mtime": 1755500400, "process_started_at": "2025-08-18T09:00:00"},
+        # A timestamp nothing can parse. Reading it as absent would have
+        # left this guardrail reported as active on no evidence at all.
+        {"name": "brake-zeta", "registered_in_process": True,
+         "command_visible_in_namespace": True,
+         "config_mtime": "last tuesday", "process_started_at": "2026-08-17T04:22:00"},
     ],
 }
 
@@ -226,6 +239,8 @@ EXPECTED = {
     "brake-beta": "invisible-in-namespace",
     "brake-gamma": "process-predates-config",
     "brake-delta": "active",
+    "brake-epsilon": "unproven-timing",
+    "brake-zeta": "unreadable-timing",
 }
 
 
@@ -269,13 +284,14 @@ def run_fixture():
     if not conforms:
         print("\nfixture did not behave as declared: the check cannot be trusted")
         return 3
-    print("\nall four states told apart, including the one that fails open;")
+    print("\nall six states told apart, including the one that fails open and the")
+    print("two that refuse to call a timing they cannot read an active guardrail;")
     print("exiting 86: the code that means the fixture found the fault it planted")
     return FIXTURE_FOUND_ITS_FAULT
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("observation", nargs="?")
     parser.add_argument("--fixture", action="store_true")
     args = parser.parse_args()

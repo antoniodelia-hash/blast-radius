@@ -81,10 +81,16 @@ service not restarted" reads differently from "installed and active".
 - `controls/install_check.py` takes a declared set of guardrails and the
   observed state of the live process, and reports which ones are declared
   yet unreachable. It reports how many guardrails it examined; zero exits 2.
-- The fixture carries all four failure shapes: declared but not
-  registered, registered but invisible inside the namespace, present on
-  disk while the process predates it, and one fully working guardrail that
-  must come back clean.
+- The fixture carries every failure shape: declared but not registered,
+  registered but invisible inside the namespace, present on disk while the
+  process predates it, a timestamp the check cannot read, a pair of
+  timestamps whose order a time zone would decide, and one fully working
+  guardrail that must come back clean. The last two were added on
+  2026-09-11: comparing a config time against a process start time by
+  string comparison is right only while every collector writes them the
+  same way, and an epoch against a zoneless string sits exactly one offset
+  apart. A guardrail whose timing cannot be established is never reported
+  as active.
 - The manual version takes ten seconds and is worth doing after every
   change: write a marker through the tool the hook is supposed to guard,
   and see whether the hook's log grew. A hook whose log never grows was

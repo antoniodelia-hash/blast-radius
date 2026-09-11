@@ -119,13 +119,19 @@ PROMISE_PATTERNS = [
 COMPILED = [re.compile(p, re.IGNORECASE) for p in PROMISE_PATTERNS]
 
 
-def find_promise(text):
-    """Return the matched sentence, or None."""
+def find_promises(text):
+    """Every promise in the turn, in the order they were made.
+
+    Returning the first match and stopping meant a turn promising twice was
+    audited against one of them, and a single recorded act then marked the
+    whole turn clean -- a false negative inside the audit written against
+    false negatives. Fixture turn t1 is exactly that shape.
+    """
+    found = {}
     for pattern in COMPILED:
-        found = pattern.search(text or "")
-        if found:
-            return " ".join(found.group(0).split())
-    return None
+        for match in pattern.finditer(text or ""):
+            found.setdefault(match.start(), " ".join(match.group(0).split()))
+    return [found[start] for start in sorted(found)]
 
 
 def inspect(observation):
@@ -144,19 +150,25 @@ def inspect(observation):
             by_turn.setdefault(act_turn, []).append(act)
 
     for turn in turns:
-        sentence = find_promise(as_text(turn.get("text"), "turns[].text"))
-        if not sentence:
+        sentences = find_promises(as_text(turn.get("text"), "turns[].text"))
+        if not sentences:
             continue
         turn_id = turn.get("id")
         recorded = [] if turn_id is None else by_turn.get(turn_id, [])
         if turn_id is None:
             turn_id = "<unidentified turn>"
         if not recorded:
-            problems.append((turn_id, "unkept", sentence))
+            for sentence in sentences:
+                problems.append((turn_id, "unkept", sentence))
             continue
-        if len(recorded) > 1:
+        if len(recorded) < len(sentences):
+            problems.append((turn_id, "short-count",
+                             "%d promises in this turn, %d act(s) recorded: %s"
+                             % (len(sentences), len(recorded), " / ".join(sentences))))
+        elif len(recorded) > len(sentences):
             problems.append((turn_id, "duplicated",
-                             "%d acts recorded for one promise: %s" % (len(recorded), sentence)))
+                             "%d acts recorded for %d promise(s): %s"
+                             % (len(recorded), len(sentences), sentences[0])))
         # Matching on the turn alone accepts any act that happened to be
         # recorded there. A promise to forward a request is not answered by
         # an unrelated write, so the act has to declare what it was.
@@ -172,6 +184,14 @@ def inspect(observation):
             if untyped:
                 problems.append((turn_id, "untyped-act",
                                  "an act with no kind cannot answer a promise"))
+            else:
+                # An act carrying any kind used to close a promise nobody
+                # described, so an unrelated write answered "I'll forward
+                # that" -- the false negative this audit is for. Matched and
+                # not checked are different results and now read differently.
+                problems.append((turn_id, "unverified",
+                                 "an act was recorded and the turn declares no "
+                                 "expected_act: nothing says it is the right one"))
     return len(turns), problems
 
 
@@ -192,7 +212,18 @@ FIXTURE = {
         {"id": "t2", "text": "Here are the figures you asked for. "
                              "I'm sending them the message with the rates."},
         {"id": "t3", "text": "Understood. Alright, I'll forward the request to them."},
-        {"id": "t4", "text": "I've filed the change request for review."},
+        # Kept, and verified against what it said it would do: the case
+        # that must stay silent.
+        {"id": "t4", "text": "I've filed the change request for review.",
+         "expected_act": "proposal_filed"},
+        # Kept, with nothing declared about what the act should be. Not the
+        # same as verified, and no longer reported as though it were.
+        {"id": "t8", "text": "I'll open the ticket for them.",
+         "expected_act": None},
+        # Two promises, one act: the turn used to be audited against the
+        # first promise alone, and the single act closed the whole turn.
+        {"id": "t9", "text": "I'll register the change. I'll notify the office too.",
+         "expected_act": "change_registered"},
         {"id": "t5", "text": "The window closes on Friday, and the crew is already booked."},
         # An act was recorded on this turn, and it is not the act promised.
         {"id": "t7", "text": "I'll forward the request to them.",
@@ -201,20 +232,36 @@ FIXTURE = {
     ],
     "acts": [
         {"turn_id": "t4", "kind": "proposal_filed"},
+        {"turn_id": "t8", "kind": "note_written"},
+        {"turn_id": "t9", "kind": "change_registered"},
         {"turn_id": "t7", "kind": "note_written"},
         {"turn_id": "t6", "kind": "request_filed"},
         {"turn_id": "t6", "kind": "request_filed"},
     ],
 }
 
-EXPECTED = {"t1": "unkept", "t2": "unkept", "t3": "unkept", "t6": "duplicated",
-            "t7": "mismatched"}
+# Turn -> every kind that turn must produce. A single kind per turn hid the
+# case where a turn gains a second problem: collapsing the list into a dict
+# kept the last one, and the fixture printed ok either way.
+EXPECTED = {
+    "t1": {"unkept"},
+    "t2": {"unkept"},
+    "t3": {"unkept"},
+    "t4": set(),
+    "t5": set(),
+    "t6": {"duplicated", "unverified"},
+    "t7": {"mismatched"},
+    "t8": {"unverified"},
+    "t9": {"short-count"},
+}
 
 
 def run_fixture():
     examined, problems = inspect(FIXTURE)
     report(examined, problems, "fixture")
-    got = dict((turn_id, kind) for turn_id, kind, _ in problems)
+    got = {}
+    for turn_id, kind, _ in problems:
+        got.setdefault(turn_id, set()).add(kind)
 
     print("\n--- fixture verdict ---")
     conforms = True
@@ -223,14 +270,17 @@ def run_fixture():
         conforms = False
     else:
         print("ok    every seeded turn was examined (%d)" % examined)
-    for turn_id in ("t1", "t2", "t3", "t4", "t5", "t6", "t7"):
-        expected = EXPECTED.get(turn_id)
-        actual = got.get(turn_id)
+    for turn_id in sorted(EXPECTED):
+        expected = EXPECTED[turn_id]
+        actual = got.get(turn_id, set())
         if expected == actual:
-            note = "  <- must stay silent" if expected is None else ""
-            print("ok    %-4s %s%s" % (turn_id, expected or "(nothing)", note))
+            note = "  <- must stay silent" if not expected else ""
+            print("ok    %-4s %s%s"
+                  % (turn_id, ",".join(sorted(expected)) or "(nothing)", note))
         else:
-            print("FAIL  %-4s expected=%s got=%s" % (turn_id, expected, actual))
+            print("FAIL  %-4s expected=%s got=%s"
+                  % (turn_id, ",".join(sorted(expected)) or "(nothing)",
+                     ",".join(sorted(actual)) or "(nothing)"))
             conforms = False
     sentences = [detail for _, kind, detail in problems if kind == "unkept"]
     if all(s.lower().startswith("i'") or s.lower().startswith("i ") for s in sentences):
@@ -265,7 +315,7 @@ def run_fixture():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("observation", nargs="?")
     parser.add_argument("--fixture", action="store_true")
     args = parser.parse_args()
