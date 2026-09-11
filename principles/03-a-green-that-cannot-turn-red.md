@@ -59,12 +59,20 @@ a profile that has vanished. Those checks need the runtime to exist, so
 they belong to a collector that has no meaning on your machine.
 
 `controls/job_guard.py` is the other layer: pure verdict logic over a
-declared observation. It decides four things — a status contradicted by
-its own output, a status with no output to check it against, a run that
-reached nobody, and a job that stopped running — and it decides them from
-a JSON file you can write by hand.
+declared observation. It decides six things — a status contradicted by its
+own output, a status with no output to check it against, a run that
+reached nobody, a job that stopped running, a status outside the set it
+understands, and a status the collector never brought back — and it
+decides them from a JSON file you can write by hand.
 
-- `job_guard.py --fixture` seeds all four, plus two healthy jobs that must
+The last two were added on 2026-09-11, after an outside review found this
+control doing the thing this card is about. It read three words: ok, error,
+failed. A job reporting timeout, crashed or skipped, or reporting nothing
+at all, came out of it clean — a green that could not turn red, inside the
+check written against greens that cannot turn red. The set it understands
+is now declared at the top of the file, and a word outside it is reported.
+
+- `job_guard.py --fixture` seeds all six, plus two healthy jobs that must
   stay silent, one of which prints alerts for a living. It exits 86, the
   code that means the fixture found the fault it planted.
 - The clock comes from the observation file rather than the wall clock, so

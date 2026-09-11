@@ -27,6 +27,10 @@ Observation format (JSON):
 `collected_at` is the clock. The check never reads the wall clock, so the
 same observation file always produces the same verdict.
 
+`last_status` is read against a declared set: "ok" passes, "error" and
+"failed" are failures, and every other word -- along with a status the
+collector never brought back -- is reported rather than assumed healthy.
+
 Exit codes
     0   examined at least one job, found nothing
     1   found at least one problem
@@ -137,6 +141,15 @@ FAILURE_MARKERS = (
     "Permission denied",
 )
 
+# The only statuses this check reads as a verdict. A scheduler is free to
+# emit others, and this check is not free to guess what they mean: a word it
+# has never seen is reported, never waved through. It shipped doing the
+# opposite -- "timeout", "crashed", "skipped", "success" and a missing field
+# all left here counted as healthy, which is the fail-open this control
+# exists to describe, in the control itself.
+HEALTHY_STATUSES = ("ok",)
+FAILED_STATUSES = ("error", "failed")
+
 # Strings that mean the run finished but told nobody.
 SILENT_DELIVERY_MARKERS = (
     "[alert]",
@@ -208,9 +221,18 @@ def inspect(observation):
             problems.append((job_id, "never-ran",
                              "scheduled every %d minutes, never recorded a run" % every))
 
-        # 5. An honest failure still needs to be seen.
-        if status in ("error", "failed"):
+        # 5. An honest failure still needs to be seen, and so does a status
+        #    that means nothing to this check.
+        if status in FAILED_STATUSES:
             problems.append((job_id, "reported-failure", "status is %r" % status))
+        elif not status:
+            problems.append((job_id, "no-status",
+                             "no status was collected: nothing here says the job ran"))
+        elif status not in HEALTHY_STATUSES:
+            problems.append((job_id, "unknown-status",
+                             "status %r is not one this check understands (%s): "
+                             "add it to the declared set or fix the collector"
+                             % (status, ", ".join(HEALTHY_STATUSES + FAILED_STATUSES))))
 
     return len(jobs), problems
 
@@ -273,6 +295,24 @@ FIXTURE = {
             "reports_anomalies": True,
         },
         {
+            # The fail-open this control shipped with: a status outside the
+            # set it knows walked past as healthy, with nothing else to
+            # catch it. An outside review found it on 2026-09-11.
+            "id": "timed-out-job",
+            "last_status": "timeout",
+            "last_run_at": "2026-08-18T07:10:00",
+            "expected_every_minutes": 1440,
+            "output": "",
+        },
+        {
+            # And the collector that brought back no status at all, which
+            # read as healthy for the same reason.
+            "id": "status-not-collected",
+            "last_run_at": "2026-08-18T07:05:00",
+            "expected_every_minutes": 1440,
+            "output": "done, 2 records written\n",
+        },
+        {
             # Must stay silent: an ordinary healthy job.
             "id": "healthy-job",
             "last_status": "ok",
@@ -288,6 +328,8 @@ EXPECTED = {
     "leadership-notice": {"silent-delivery-failure"},
     "weekly-scan": {"stale"},
     "opaque-job": {"unverifiable"},
+    "timed-out-job": {"unknown-status"},
+    "status-not-collected": {"no-status"},
     "cron-sentinel": set(),
     "healthy-job": set(),
 }
