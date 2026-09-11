@@ -40,6 +40,10 @@ import tempfile
 # test used to read a traceback as proof that the check works.
 FIXTURE_FOUND_ITS_FAULT = 86
 
+
+class Unreadable(Exception):
+    """A document this checker could not read, which is not a bad citation."""
+
 # Both patterns run on the flattened document, so a quotation wrapped
 # across lines by the editor still matches. Up to 80 characters of prose
 # may sit between the closing quote and its page marker: cards say things
@@ -177,7 +181,6 @@ def collect_documents(paths):
 
 def run_check(documents, source_text, label):
     raw = source_text
-    flat, _ = flatten_with_offsets(raw)
     comparable_flat, comparable_offsets = comparable_with_offsets(raw)
     pages = page_index(raw)
 
@@ -186,8 +189,15 @@ def run_check(documents, source_text, label):
     problems = []
 
     for path in documents:
-        with open(path, encoding="utf-8") as handle:
-            body = flatten(handle.read())
+        try:
+            with open(path, encoding="utf-8") as handle:
+                body = flatten(handle.read())
+        except (OSError, UnicodeDecodeError) as error:
+            # Fail closed, and closed here means exit 2 rather than 1: an
+            # unreadable document is a check that did not run, and 1 is the
+            # code this tool uses for a bad citation. CI would have reported
+            # bad citations while the real fault was a broken tool.
+            raise Unreadable("%s: %s" % (path, error))
 
         with_page = QUOTE_WITH_PAGE.findall(body)
         all_quotes = QUOTE_ANY.findall(body)
@@ -196,12 +206,12 @@ def run_check(documents, source_text, label):
         for quotation, claimed in with_page:
             examined += 1
             if comparable(quotation) not in comparable_flat:
-                if flatten(quotation).lower() in flat.lower():
-                    detail = ("found with different capitalisation: a quotation is "
-                              "verbatim or it is a paraphrase")
-                else:
-                    detail = "not found in the source document"
-                problems.append((path, quotation, detail))
+                # There used to be a "found with different capitalisation"
+                # branch here. comparable() lowercases both sides, so that
+                # branch could only fire on contrived hyphen boundaries, and
+                # when it did it named a case mismatch that did not exist --
+                # sending the reader to hunt for it.
+                problems.append((path, quotation, "not found in the source document"))
                 continue
             actual = pages_of(comparable_offsets, comparable_flat, pages, quotation)
             if not actual:
@@ -226,7 +236,7 @@ def run_check(documents, source_text, label):
         print("   %s\n      %r\n      %s" % (path, quotation[:70], detail))
     if unchecked:
         print("   (%d quoted passages carry no (p.N) marker and were not verified)" % unchecked)
-    return examined, problems
+    return examined, problems, unchecked
 
 
 FIXTURE_SOURCE = """ASI02: Tool Misuse and Exploitation
@@ -286,13 +296,25 @@ def run_fixture():
         doc = os.path.join(tmp, "card.md")
         with open(doc, "w", encoding="utf-8") as handle:
             handle.write(FIXTURE_DOC)
-        examined, problems = run_check([doc], FIXTURE_SOURCE, "fixture")
+        examined, problems, unchecked = run_check([doc], FIXTURE_SOURCE, "fixture")
+        unreadable_caught = False
+        binary = os.path.join(tmp, "not-text.md")
+        with open(binary, "wb") as handle:
+            handle.write(b"\xff\xfe not valid utf-8\n")
+        try:
+            run_check([binary], FIXTURE_SOURCE, "fixture-unreadable")
+        except Unreadable:
+            unreadable_caught = True
 
     print("\n--- fixture verdict ---")
     conforms = True
     checks = [
         ("quotations examined", examined, EXPECTED_EXAMINED),
         ("problems found", len(problems), EXPECTED_PROBLEMS),
+        # Declared since the first version and never asserted on, so the
+        # docstring's promise that an unmarked quotation is reported had no
+        # test behind it at all.
+        ("quoted without a page", unchecked, EXPECTED_UNCHECKED),
     ]
     for name, got, expected in checks:
         if got == expected:
@@ -314,6 +336,11 @@ def run_fixture():
         conforms = False
     if len(problems) == EXPECTED_PROBLEMS:
         print("ok    both line-split quotations were accepted as genuine")
+    if unreadable_caught:
+        print("ok    an undecodable document is refused rather than read as a bad citation")
+    else:
+        print("FAIL  an undecodable document did not raise Unreadable")
+        conforms = False
 
     if not conforms:
         print("\nfixture did not behave as declared: the checker cannot be trusted")
@@ -324,7 +351,7 @@ def run_fixture():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("source", nargs="?", help="extracted text of the source PDF")
     parser.add_argument("paths", nargs="*", help="documents to check (default: the repository)")
     parser.add_argument("--fixture", action="store_true", help="prove the checker can fail")
@@ -341,13 +368,21 @@ def main():
     except (OSError, UnicodeDecodeError) as error:
         print("unusable source text: %s" % error)
         return 2
-    if len(flatten(source_text)) < 500:
-        print("source text is too short to be the document: %d characters" % len(source_text))
+    flattened_length = len(flatten(source_text))
+    if flattened_length < 500:
+        # The number shown has to be the number that failed the test: the
+        # raw length is thousands of padding spaces larger in pdftotext
+        # -layout output.
+        print("source text is too short to be the document: %d characters" % flattened_length)
         return 2
 
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     documents = collect_documents(args.paths or [repo])
-    examined, problems = run_check(documents, source_text, "citation-check")
+    try:
+        examined, problems, _ = run_check(documents, source_text, "citation-check")
+    except Unreadable as error:
+        print("unusable document: %s" % error)
+        return 2
     if examined == 0:
         print("examined zero quotations: that is a fault, not a clean repository")
         return 2

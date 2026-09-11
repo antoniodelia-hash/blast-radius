@@ -19,6 +19,11 @@ Exit codes
     1   discard rate exceeded, or nothing matched at all
     2   no candidate lines found: the source may not cover the period
     3   --fixture did not behave as declared
+    4   unusable arguments or an unreadable log: the check did not run
+
+2 and 4 used to be the same code, so a caller could not tell "the source
+covers nothing" -- which is a finding about the data -- from "you handed me
+a regex I cannot compile", which is a finding about the command line.
 """
 
 import argparse
@@ -33,9 +38,24 @@ FIXTURE_FOUND_ITS_FAULT = 86
 DEFAULT_MAX_DISCARD = 0.01
 
 
-def inspect(lines, keyword, pattern, max_discard=DEFAULT_MAX_DISCARD):
-    """Return (candidates, matched, discarded_lines)."""
-    compiled = re.compile(pattern)
+class BadUsage(Exception):
+    """Something about the invocation, rather than about the data."""
+
+
+def inspect(lines, keyword, pattern):
+    """Return (candidates, matched, discarded_lines).
+
+    max_discard used to be a parameter here and was never read: the
+    threshold is applied by the caller, and an argument that suggests a
+    check happens where it does not is worth removing.
+    """
+    try:
+        compiled = re.compile(pattern)
+    except re.error as error:
+        # An unusable pattern used to abort with a traceback and CPython's
+        # exit 1, which this tool documents as "the discard rate was
+        # exceeded": a typo on the command line arrived as a verdict.
+        raise BadUsage("unusable --pattern %r: %s" % (pattern, error))
     candidates = [line for line in lines if keyword in line]
     matched, discarded = [], []
     for line in candidates:
@@ -106,10 +126,19 @@ def run_fixture():
         print("FAIL  the discarded lines have nothing in common: wrong trap")
         conforms = False
     if rate <= DEFAULT_MAX_DISCARD:
-        print("FAIL  a 37%% discard rate passed the threshold")
+        print("FAIL  a %.1f%% discard rate passed the threshold" % (rate * 100))
         conforms = False
     else:
         print("ok    the discard rate crossed the declared limit")
+
+    # An unusable pattern has to come back as a usage error rather than as
+    # a verdict about the log.
+    try:
+        inspect(FIXTURE_LINES, FIXTURE_KEYWORD, "msg='([^']*")
+        print("FAIL  an uncompilable pattern was accepted")
+        conforms = False
+    except BadUsage:
+        print("ok    an uncompilable pattern is refused as a usage error")
 
     if not conforms:
         print("\nfixture did not behave as declared: the parser cannot be trusted")
@@ -120,7 +149,7 @@ def run_fixture():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("logfile", nargs="?")
     parser.add_argument("--keyword", default=FIXTURE_KEYWORD)
     parser.add_argument("--pattern", default=FIXTURE_PATTERN)
@@ -136,15 +165,19 @@ def main():
     limit = args.max_discard
     if not (limit == limit) or limit < 0 or limit > 1:
         print("--max-discard must be a fraction between 0 and 1, got %r" % limit)
-        return 2
+        return 4
     try:
         with open(args.logfile, encoding="utf-8", errors="replace") as handle:
             lines = handle.read().splitlines()
     except OSError as error:
         print("unusable log file: %s" % error)
-        return 2
+        return 4
 
-    candidates, matched, discarded = inspect(lines, args.keyword, args.pattern, args.max_discard)
+    try:
+        candidates, matched, discarded = inspect(lines, args.keyword, args.pattern)
+    except BadUsage as error:
+        print("%s" % error)
+        return 4
     rate = report(candidates, matched, discarded, args.max_discard, "parser-report")
     if not candidates:
         print("no candidate lines: zero rows from absent data and zero rows from")

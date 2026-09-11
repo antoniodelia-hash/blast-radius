@@ -35,13 +35,23 @@ def stdlib_names():
     return getattr(sys, "stdlib_module_names", None)
 
 
-def imported_modules(source):
+def imported_modules(source, path="<unknown>"):
+    """Top-level module names imported by this source.
+
+    A relative import is returned under its own name. `from .helper import
+    x` has no module to compare against the standard library, and skipping
+    it meant a control that cannot run as the single copied file this
+    repository promises was reported clean.
+    """
     modules = []
-    for node in ast.walk(ast.parse(source)):
+    for node in ast.walk(ast.parse(source, path)):
         if isinstance(node, ast.Import):
             modules += [alias.name.split(".")[0] for alias in node.names]
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            modules.append(node.module.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                modules.append("." * node.level + (node.module or ""))
+            elif node.module:
+                modules.append(node.module.split(".")[0])
     return modules
 
 
@@ -57,11 +67,28 @@ def inspect(root, folders, allowed):
                 if not name.endswith(".py"):
                     continue
                 path = os.path.join(base, name)
+                relative = os.path.relpath(path, root)
                 examined += 1
-                with open(path, encoding="utf-8") as handle:
-                    for module in imported_modules(handle.read()):
-                        if module not in allowed:
-                            problems.append((os.path.relpath(path, root), module))
+                # One unreadable or unparsable file used to abort the whole
+                # walk: the exception left main(), Python exited 1 -- this
+                # script's code for "a third-party import" -- and every file
+                # after it was never examined, in silence.
+                try:
+                    with open(path, encoding="utf-8-sig") as handle:
+                        source = handle.read()
+                except (OSError, UnicodeDecodeError) as error:
+                    problems.append((relative, "<unreadable: %s>" % error))
+                    continue
+                try:
+                    modules = imported_modules(source, path)
+                except SyntaxError as error:
+                    problems.append((relative, "<unparsable: line %s>" % error.lineno))
+                    continue
+                for module in modules:
+                    if module.startswith("."):
+                        problems.append((relative, "%s (relative import)" % module))
+                    elif module not in allowed:
+                        problems.append((relative, module))
     return examined, problems
 
 
@@ -109,7 +136,7 @@ def run_fixture():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("--fixture", action="store_true")
     args = parser.parse_args()
     if args.fixture:
