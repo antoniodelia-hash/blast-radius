@@ -49,6 +49,85 @@ import tempfile
 # test used to read a traceback as proof that the check works.
 FIXTURE_FOUND_ITS_FAULT = 86
 
+
+# ---- the shape of an observation ---------------------------------------
+# Copied verbatim into every control that reads one. These files are made
+# to be taken one at a time, so each carries its own validation instead of
+# importing it, and tools/copy_check.py fails when the copies drift apart.
+#
+# json.load promises valid JSON and says nothing about shape. A list where
+# an object belongs used to raise AttributeError, and an uncaught exception
+# exits 1 -- the code these controls document as "I found a problem". That
+# made a crash indistinguishable from a verdict, which is the failure this
+# repository exists to describe. An outside review found it in six controls
+# at once on 2026-09-11, with one of them crashing on the shape its own
+# fixture ships.
+#
+# Some helpers are unused in some controls. The copies are kept identical
+# on purpose: an identical copy is one whose drift can be checked.
+
+
+class Unusable(ValueError):
+    """The observation cannot be read, so no verdict can be given."""
+
+
+def as_mapping(value, where):
+    """The value as an object. Absent reads as empty, a wrong type refuses."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise Unusable("%s must be an object, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_mappings(value, where):
+    """A list of objects: the shape of every "one entry per thing" field."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise Unusable("%s[%d] must be an object, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+
+
+def as_number(value, where, default=None):
+    """A number. A stringified or null count is refused, never guessed."""
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise Unusable("%s must be a number, found %r" % (where, value))
+    return value
+
+
+def as_text(value, where, default=""):
+    """A string. A number here used to reach re.search and raise TypeError."""
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise Unusable("%s must be a string, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_strings(value, where):
+    """A list of strings. set() over a bare string silently becomes letters."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list of strings, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise Unusable("%s[%d] must be a string, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+# ---- end of the shape block --------------------------------------------
+
 # Strings that mean the run failed, whatever the status field says.
 FAILURE_MARKERS = (
     "## Script Error",
@@ -73,14 +152,23 @@ def parse_time(value):
 
 def inspect(observation):
     """Return (examined, problems). A problem is (job_id, kind, detail)."""
-    now = parse_time(observation["collected_at"])
+    observation = as_mapping(observation, "observation")
+    collected_at = as_text(observation.get("collected_at"), "collected_at")
+    if not collected_at:
+        raise Unusable("collected_at is missing: without the moment of collection "
+                       "no job can be called stale")
+    now = parse_time(collected_at)
     problems = []
-    jobs = observation.get("jobs") or []
+    # A list of job ids instead of a list of jobs used to raise
+    # AttributeError inside the loop, and AttributeError was the one shape
+    # error the handler below did not catch: the check exited 1, which it
+    # documents as "I found a problem".
+    jobs = as_mappings(observation.get("jobs"), "jobs")
 
     for job in jobs:
-        job_id = job.get("id", "<unnamed>")
-        status = (job.get("last_status") or "").lower()
-        output = job.get("output")
+        job_id = as_text(job.get("id"), "jobs[].id", "<unnamed>")
+        status = as_text(job.get("last_status"), "jobs[].last_status").lower()
+        output = as_text(job.get("output"), "jobs[].output", None)
         reports_anomalies = bool(job.get("reports_anomalies"))
 
         # 1. The green that cannot turn red: status says ok, output says otherwise.
@@ -241,6 +329,25 @@ def run_fixture():
                  ",".join(sorted(expected_kinds)) or "(nothing)",
                  ",".join(sorted(got)) or "(nothing)", note))
 
+
+    # The shape block is code like any other. A validation nobody exercises
+    # is the shape of the fault this check exists to report, so the fixture
+    # hands it the shapes that used to end in a traceback and exit 1.
+    for description, broken in (
+        ("a list where the observation belongs",
+         ["x"]),
+        ("a job list holding plain ids",
+         {"collected_at": "2026-09-11T10:00:00", "jobs": ["morning-digest"]}),
+        ("an observation with no collection time",
+         {"jobs": []}),
+    ):
+        try:
+            inspect(broken)
+            print("FAIL  accepted %s" % description)
+            conforms = False
+        except Unusable:
+            print("ok    refused %s" % description)
+
     if not conforms:
         print("\nfixture did not behave as declared: the check cannot be trusted")
         return 3
@@ -271,6 +378,10 @@ def main():
 
     try:
         examined, problems = inspect(observation)
+    except Unusable as error:
+        # Exit 2, never 1: a shape this check cannot read is not a finding.
+        print("unusable observation: %s" % error)
+        return 2
     except (KeyError, TypeError, ValueError) as error:
         print("observation file does not have the expected shape: %s" % error)
         return 2

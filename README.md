@@ -55,8 +55,11 @@ test that says so:
 python3 controls/tests/test_contract.py
 ```
 
-Take the file you need and delete the rest. Nothing is shared between
-controls, so nothing breaks when you remove one.
+Take the file you need and delete the rest. No control imports another, so
+removing one breaks nothing. The validation that reads an observation is
+copied into every control instead of shared, which is what keeps a control
+a single file, and `tools/copy_check.py` compares those copies byte for
+byte: two copies of one rule drift, and they drift quietly.
 
 ## What this repository is careful about
 
@@ -67,6 +70,14 @@ without a page marker is reported as unverified rather than passed over.
 **Every check declares how much it examined**, and treats zero as a fault.
 The failure that taught us this: a scanner that filtered out every path
 beginning with a dot, examined 195 files, kept none, and reported clean.
+
+**A control refuses an observation it cannot read.** Valid JSON of the wrong
+shape used to raise an exception, and Python exits 1 when an exception
+escapes — the same code these controls use to report a finding, so a crash
+arrived looking like a verdict. An outside review found that in six
+controls at once on 2026-09-11, one of them crashing on a shape its own
+fixture ships. They now exit 2 and name the field that was unreadable, and
+every fixture plants the shapes that used to crash.
 
 **A control that cannot fail is not a control.** Each one ships the trap
 that produced its incident, plus the healthy cases that must stay silent.

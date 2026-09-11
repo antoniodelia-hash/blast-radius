@@ -28,6 +28,85 @@ import sys
 # test used to read a traceback as proof that the check works.
 FIXTURE_FOUND_ITS_FAULT = 86
 
+
+# ---- the shape of an observation ---------------------------------------
+# Copied verbatim into every control that reads one. These files are made
+# to be taken one at a time, so each carries its own validation instead of
+# importing it, and tools/copy_check.py fails when the copies drift apart.
+#
+# json.load promises valid JSON and says nothing about shape. A list where
+# an object belongs used to raise AttributeError, and an uncaught exception
+# exits 1 -- the code these controls document as "I found a problem". That
+# made a crash indistinguishable from a verdict, which is the failure this
+# repository exists to describe. An outside review found it in six controls
+# at once on 2026-09-11, with one of them crashing on the shape its own
+# fixture ships.
+#
+# Some helpers are unused in some controls. The copies are kept identical
+# on purpose: an identical copy is one whose drift can be checked.
+
+
+class Unusable(ValueError):
+    """The observation cannot be read, so no verdict can be given."""
+
+
+def as_mapping(value, where):
+    """The value as an object. Absent reads as empty, a wrong type refuses."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise Unusable("%s must be an object, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_mappings(value, where):
+    """A list of objects: the shape of every "one entry per thing" field."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise Unusable("%s[%d] must be an object, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+
+
+def as_number(value, where, default=None):
+    """A number. A stringified or null count is refused, never guessed."""
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise Unusable("%s must be a number, found %r" % (where, value))
+    return value
+
+
+def as_text(value, where, default=""):
+    """A string. A number here used to reach re.search and raise TypeError."""
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise Unusable("%s must be a string, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_strings(value, where):
+    """A list of strings. set() over a bare string silently becomes letters."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list of strings, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise Unusable("%s[%d] must be a string, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+# ---- end of the shape block --------------------------------------------
+
 # Phrasings that describe an act the system is expected to perform. Kept
 # deliberately narrow: a broad matcher turns every polite sentence into an
 # alert, and an alert stream nobody reads is the failure this check is for.
@@ -50,20 +129,28 @@ def find_promise(text):
 
 
 def inspect(observation):
-    turns = observation.get("turns") or []
-    acts = observation.get("acts") or []
+    observation = as_mapping(observation, "observation")
+    turns = as_mappings(observation.get("turns"), "turns")
+    acts = as_mappings(observation.get("acts"), "acts")
     problems = []
 
     by_turn = {}
     for act in acts:
-        by_turn.setdefault(act.get("turn_id"), []).append(act)
+        # An act with no turn_id would bucket under None, where a turn with
+        # no id would then find it: two unidentified things keeping each
+        # other's promises. Neither is a key.
+        act_turn = act.get("turn_id")
+        if act_turn is not None:
+            by_turn.setdefault(act_turn, []).append(act)
 
     for turn in turns:
-        sentence = find_promise(turn.get("text"))
+        sentence = find_promise(as_text(turn.get("text"), "turns[].text"))
         if not sentence:
             continue
         turn_id = turn.get("id")
-        recorded = by_turn.get(turn_id, [])
+        recorded = [] if turn_id is None else by_turn.get(turn_id, [])
+        if turn_id is None:
+            turn_id = "<unidentified turn>"
         if not recorded:
             problems.append((turn_id, "unkept", sentence))
             continue
@@ -152,6 +239,23 @@ def run_fixture():
         print("FAIL  reported something other than the triggering sentence")
         conforms = False
 
+
+    # The shape block is code like any other. A validation nobody exercises
+    # is the shape of the fault this check exists to report, so the fixture
+    # hands it the shapes that used to end in a traceback and exit 1.
+    for description, broken in (
+        ("a list where the observation belongs",
+         ["x"]),
+        ("a turn whose text is a number",
+         {"turns": [{"id": "t1", "text": 12}]}),
+    ):
+        try:
+            inspect(broken)
+            print("FAIL  accepted %s" % description)
+            conforms = False
+        except Unusable:
+            print("ok    refused %s" % description)
+
     if not conforms:
         print("\nfixture did not behave as declared: the audit cannot be trusted")
         return 3
@@ -175,7 +279,12 @@ def main():
     except (OSError, ValueError) as error:
         print("unusable observation file: %s" % error)
         return 2
-    examined, problems = inspect(observation)
+    try:
+        examined, problems = inspect(observation)
+    except Unusable as error:
+        # Exit 2, never 1: a shape this check cannot read is not a finding.
+        print("unusable observation: %s" % error)
+        return 2
     report(examined, problems, "promise-audit")
     if examined == 0:
         print("examined zero turns: that is a fault, not a silent agent")

@@ -33,6 +33,11 @@ run "every check can fail" python3 "$root/controls/tests/test_contract.py"
 # The counters at the top of MAPPING.md must describe the table below it.
 run "mapping counters" python3 "$root/tools/mapping_check.py"
 
+# The validation that reads an observation is copied into every control
+# rather than imported, so that a control stays one file. This is what the
+# copy costs: the copies are compared byte for byte.
+run "copied blocks agree" python3 "$root/tools/copy_check.py"
+
 # Standard-library-only. Exit 2 here means this Python cannot answer the
 # question (the module inventory arrived in 3.10), which is reported as
 # skipped rather than passed: the two must never look alike.

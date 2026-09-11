@@ -35,6 +35,85 @@ import sys
 # test used to read a traceback as proof that the check works.
 FIXTURE_FOUND_ITS_FAULT = 86
 
+
+# ---- the shape of an observation ---------------------------------------
+# Copied verbatim into every control that reads one. These files are made
+# to be taken one at a time, so each carries its own validation instead of
+# importing it, and tools/copy_check.py fails when the copies drift apart.
+#
+# json.load promises valid JSON and says nothing about shape. A list where
+# an object belongs used to raise AttributeError, and an uncaught exception
+# exits 1 -- the code these controls document as "I found a problem". That
+# made a crash indistinguishable from a verdict, which is the failure this
+# repository exists to describe. An outside review found it in six controls
+# at once on 2026-09-11, with one of them crashing on the shape its own
+# fixture ships.
+#
+# Some helpers are unused in some controls. The copies are kept identical
+# on purpose: an identical copy is one whose drift can be checked.
+
+
+class Unusable(ValueError):
+    """The observation cannot be read, so no verdict can be given."""
+
+
+def as_mapping(value, where):
+    """The value as an object. Absent reads as empty, a wrong type refuses."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise Unusable("%s must be an object, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_mappings(value, where):
+    """A list of objects: the shape of every "one entry per thing" field."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise Unusable("%s[%d] must be an object, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+
+
+def as_number(value, where, default=None):
+    """A number. A stringified or null count is refused, never guessed."""
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise Unusable("%s must be a number, found %r" % (where, value))
+    return value
+
+
+def as_text(value, where, default=""):
+    """A string. A number here used to reach re.search and raise TypeError."""
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise Unusable("%s must be a string, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_strings(value, where):
+    """A list of strings. set() over a bare string silently becomes letters."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list of strings, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise Unusable("%s[%d] must be a string, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+# ---- end of the shape block --------------------------------------------
+
 LIMITS = {
     "instructions": {"hard": 40000, "operational": 30000},
     "reference": {"hard": 25000, "operational": 20000},  # scan:allow -- byte sizes
@@ -57,29 +136,40 @@ def strict_bool(value, field):
 
 def decide(write, limits=None):
     """Return (verdict, reason). Verdict is refuse | mark | pass."""
-    limits = limits or LIMITS
-    kind = write.get("kind", "instructions")
-    ceiling = limits.get(kind, limits["instructions"])
-    before = write.get("size_before")
-    after = write.get("size_after", 0)
+    limits = as_mapping(limits, "limits") or LIMITS
+    kind = as_text(write.get("kind"), "kind", "instructions")
+    # dict.get(key, default) evaluates the default whether or not it is
+    # needed: limits.get(kind, limits["instructions"]) raised KeyError on
+    # every write as soon as an observation brought its own limits without
+    # an "instructions" entry -- including the writes that were in it.
+    ceiling = (as_mapping(limits.get(kind), "limits[%s]" % kind)
+               or LIMITS.get(kind) or LIMITS["instructions"])
+    hard = as_number(ceiling.get("hard"), "limits[%s].hard" % kind)
+    operational = as_number(ceiling.get("operational"), "limits[%s].operational" % kind)
+    if hard is None or operational is None:
+        raise Unusable("limits[%s] needs both operational and hard" % kind)
+    before = as_number(write.get("size_before"), "size_before")
+    after = as_number(write.get("size_after"), "size_after", 0)
 
     if strict_bool(write.get("vendor_owned"), "vendor_owned"):
         return "pass", "vendor-owned: exempt by manifest membership"
     if before is not None and after <= before:
-        return "pass", "write removes content (%d -> %d)" % (before, after)
-    if after > ceiling["hard"]:
-        return "refuse", "%d over hard ceiling %d for %s" % (after, ceiling["hard"], kind)
-    if after > ceiling["operational"]:
-        return "mark", "%d over operational line %d for %s" % (after, ceiling["operational"], kind)
+        # Equal sizes land here too, so the reason says what was measured.
+        return "pass", "write does not grow the file (%d -> %d)" % (before, after)
+    if after > hard:
+        return "refuse", "%d over hard ceiling %d for %s" % (after, hard, kind)
+    if after > operational:
+        return "mark", "%d over operational line %d for %s" % (after, operational, kind)
     return "pass", "%d within limits" % after
 
 
 def inspect(observation):
-    writes = observation.get("writes") or []
+    observation = as_mapping(observation, "observation")
+    writes = as_mappings(observation.get("writes"), "writes")
     results = []
     for write in writes:
         verdict, reason = decide(write, observation.get("limits"))
-        results.append((write.get("path", "<unnamed>"), verdict, reason))
+        results.append((as_text(write.get("path"), "path", "<unnamed>"), verdict, reason))
     return len(writes), results
 
 
@@ -149,6 +239,44 @@ def run_fixture():
         else:
             print("FAIL  %-28s expected=%s got=%s" % (path, expected, actual))
             conforms = False
+
+    # The shape block is code like any other. A validation nobody exercises
+    # is the shape of the fault this check exists to report, so the fixture
+    # hands it the shapes that used to end in a traceback and exit 1.
+    for description, broken in (
+        ("a list where the observation belongs",
+         ["x"]),
+        ("a ceiling written as a string",
+         {"limits": {"instructions": {"operational": "big", "hard": 2}},
+          "writes": [{"path": "p", "size_after": 10}]}),
+        ("a size written as a string",
+         {"writes": [{"path": "p", "size_before": 1, "size_after": "41000"}]}),
+    ):
+        try:
+            inspect(broken)
+            print("FAIL  accepted %s" % description)
+            conforms = False
+        except Unusable:
+            print("ok    refused %s" % description)
+
+    # The KeyError that started this: an observation carrying its own limits
+    # without an "instructions" entry killed every write, including the ones
+    # the mapping did cover, because dict.get evaluated its default anyway.
+    partial = {"limits": {"reference": {"operational": 100, "hard": 200}},
+               "writes": [{"path": "own/ref.md", "kind": "reference", "size_after": 10},
+                          {"path": "own/skill.md", "kind": "instructions", "size_after": 10}]}
+    try:
+        seen, verdicts = inspect(partial)
+        if seen == 2 and all(v == "pass" for _, v, _ in verdicts):
+            print("ok    limits missing a kind fall back to the built-in ceiling")
+        else:
+            print("FAIL  partial limits gave examined=%d verdicts=%s"
+                  % (seen, [v for _, v, _ in verdicts]))
+            conforms = False
+    except Exception as error:
+        print("FAIL  partial limits raised %s: %s" % (type(error).__name__, error))
+        conforms = False
+
     if not conforms:
         print("\nfixture did not behave as declared: the brake cannot be trusted")
         return 3
@@ -176,6 +304,10 @@ def main():
 
     try:
         examined, results = inspect(observation)
+    except Unusable as error:
+        # Exit 2, never 1: a shape this check cannot read is not a finding.
+        print("unusable observation: %s" % error)
+        return 2
     except ValueError as error:
         print("observation refused: %s" % error)
         return 2

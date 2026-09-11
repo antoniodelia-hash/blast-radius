@@ -32,15 +32,98 @@ import sys
 # test used to read a traceback as proof that the check works.
 FIXTURE_FOUND_ITS_FAULT = 86
 
+
+# ---- the shape of an observation ---------------------------------------
+# Copied verbatim into every control that reads one. These files are made
+# to be taken one at a time, so each carries its own validation instead of
+# importing it, and tools/copy_check.py fails when the copies drift apart.
+#
+# json.load promises valid JSON and says nothing about shape. A list where
+# an object belongs used to raise AttributeError, and an uncaught exception
+# exits 1 -- the code these controls document as "I found a problem". That
+# made a crash indistinguishable from a verdict, which is the failure this
+# repository exists to describe. An outside review found it in six controls
+# at once on 2026-09-11, with one of them crashing on the shape its own
+# fixture ships.
+#
+# Some helpers are unused in some controls. The copies are kept identical
+# on purpose: an identical copy is one whose drift can be checked.
+
+
+class Unusable(ValueError):
+    """The observation cannot be read, so no verdict can be given."""
+
+
+def as_mapping(value, where):
+    """The value as an object. Absent reads as empty, a wrong type refuses."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise Unusable("%s must be an object, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_mappings(value, where):
+    """A list of objects: the shape of every "one entry per thing" field."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise Unusable("%s[%d] must be an object, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+
+
+def as_number(value, where, default=None):
+    """A number. A stringified or null count is refused, never guessed."""
+    if value is None:
+        return default
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise Unusable("%s must be a number, found %r" % (where, value))
+    return value
+
+
+def as_text(value, where, default=""):
+    """A string. A number here used to reach re.search and raise TypeError."""
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise Unusable("%s must be a string, found %s"
+                       % (where, type(value).__name__))
+    return value
+
+
+def as_strings(value, where):
+    """A list of strings. set() over a bare string silently becomes letters."""
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise Unusable("%s must be a list of strings, found %s"
+                       % (where, type(value).__name__))
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise Unusable("%s[%d] must be a string, found %s"
+                           % (where, index, type(item).__name__))
+    return value
+# ---- end of the shape block --------------------------------------------
+
 READABLE_LIMIT = 100000
 
 
 def inspect(observation):
-    before = observation.get("before") or {}
-    after = observation.get("after") or {}
-    expected = set(observation.get("expected_new") or [])
-    patches = observation.get("local_patches") or []
-    limit = observation.get("readable_limit", READABLE_LIMIT)
+    observation = as_mapping(observation, "observation")
+    before = as_mapping(observation.get("before"), "before")
+    after = as_mapping(observation.get("after"), "after")
+    expected = set(as_strings(observation.get("expected_new"), "expected_new"))
+    patches = as_mappings(observation.get("local_patches"), "local_patches")
+    # .get(key, default) falls back only when the key is absent. A collector
+    # writing "readable_limit": null handed None to a > comparison, and the
+    # whole oversized check died on a typo in a config file.
+    limit = as_number(observation.get("readable_limit"), "readable_limit", READABLE_LIMIT)
 
     findings = []
     for name in sorted(set(after) - set(before)):
@@ -49,20 +132,36 @@ def inspect(observation):
     for name in sorted(set(before) - set(after)):
         findings.append((name, "vanished", "present before the update, gone after"))
     for name, size in sorted(after.items()):
-        if isinstance(size, int) and size > limit:
+        # A size the collector wrote as "102716" or 102716.0 used to skip the
+        # check entirely, so the one component past the limit was the one
+        # reported clean. A size this cannot read is a finding of its own.
+        if isinstance(size, bool) or not isinstance(size, (int, float)):
+            findings.append((name, "unreadable-size",
+                             "size is %r, so nothing was compared against the limit" % (size,)))
+        elif size > limit:
             findings.append((name, "oversized",
                              "%d characters, past the readable limit %d" % (size, limit)))
     for patch in patches:
         marker = patch.get("marker")
-        target = patch.get("target_file")
+        # target_file: null yields None, and None[:32] raises TypeError while
+        # printing -- after the findings have been computed, so the run dies
+        # with the answer already in hand.
+        label = (as_text(patch.get("target_file"), "local_patches[].target_file", "")
+                 or as_text(patch.get("name"), "local_patches[].name", "")
+                 or "<patch>")
         occurrences = patch.get("marker_occurrences_after")
-        if occurrences is None:
+        # False == 0 in Python, and a count written "0" or -1 is not a count.
+        # Anything that is not a whole number at or above zero was not
+        # collected, whatever it looks like.
+        if (isinstance(occurrences, bool) or not isinstance(occurrences, int)
+                or occurrences < 0):
             # Not collected and zero are opposite findings, and treating the
             # first as clean is how an unchecked patch passes as restored.
-            findings.append((target or patch.get("name", "<patch>"), "not-collected",
-                             "no marker count for %r: nothing was verified" % marker))
+            findings.append((label, "not-collected",
+                             "no usable marker count for %r (%r): nothing was verified"
+                             % (marker, occurrences)))
         elif occurrences == 0:
-            findings.append((target or patch.get("name", "<patch>"), "orphaned",
+            findings.append((label, "orphaned",
                              "marker %r not found after update: reapply hit nothing"
                              % marker))
     examined = len(set(before) | set(after)) + len(patches)
@@ -134,6 +233,25 @@ def run_fixture():
         conforms = False
     else:
         print("ok    the requested skill and the surviving patch stayed silent")
+
+    # The shape block is code like any other. A validation nobody exercises
+    # is the shape of the fault this check exists to report, so the fixture
+    # hands it the shapes that used to end in a traceback and exit 1.
+    for description, broken in (
+        ("a list where the observation belongs",
+         ["x"]),
+        ("a readable limit written as a string",
+         {"readable_limit": "100000"}),
+        ("an inventory that is a list",
+         {"before": ["a"], "after": {}}),
+    ):
+        try:
+            inspect(broken)
+            print("FAIL  accepted %s" % description)
+            conforms = False
+        except Unusable:
+            print("ok    refused %s" % description)
+
     if not conforms:
         print("\nfixture did not behave as declared: the audit cannot be trusted")
         return 3
@@ -157,7 +275,12 @@ def main():
     except (OSError, ValueError) as error:
         print("unusable observation file: %s" % error)
         return 2
-    examined, findings = inspect(observation)
+    try:
+        examined, findings = inspect(observation)
+    except Unusable as error:
+        # Exit 2, never 1: a shape this check cannot read is not a finding.
+        print("unusable observation: %s" % error)
+        return 2
     report(examined, findings, "update-audit")
     if examined == 0:
         print("examined zero components: that is a fault, not a quiet update")
