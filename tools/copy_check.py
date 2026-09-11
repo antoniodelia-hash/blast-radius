@@ -167,7 +167,7 @@ def run_fixture():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("root", nargs="?", help="repository root")
     parser.add_argument("--fixture", action="store_true")
     args = parser.parse_args()

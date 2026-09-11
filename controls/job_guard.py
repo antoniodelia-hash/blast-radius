@@ -399,7 +399,7 @@ def run_fixture():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("observation", nargs="?")
     parser.add_argument("--fixture", action="store_true", help="prove the check can fail")
     args = parser.parse_args()
