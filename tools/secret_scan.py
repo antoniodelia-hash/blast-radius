@@ -24,6 +24,7 @@ Usage
 
 import argparse
 import hashlib
+import io
 import os
 import re
 import subprocess
@@ -46,6 +47,31 @@ TEXT_SUFFIXES = {
 }
 
 
+def say(line):
+    """print() that survives a terminal which cannot encode the text.
+
+    A match is printed redacted, and the two characters redaction keeps can
+    be accented -- which is the normal case for the names this scanner
+    exists to catch. On a non-UTF-8 stdout print() then raises
+    UnicodeEncodeError and the scanner dies in the middle of its report,
+    at the one moment the operator needs the line. The finding survives the
+    terminal.
+    """
+    try:
+        print(line)
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+        print(line.encode(encoding, "replace").decode(encoding, "replace"))
+
+
+class UnusableDenylist(ValueError):
+    """The denylist itself cannot be read, so nothing can be scanned."""
+
+
+class UnusableAllowlist(ValueError):
+    """The register of approved exceptions cannot be read."""
+
+
 def load_denylist(path):
     """Return (literals, words, regexes). Raises if the file yields nothing."""
     literals, words, regexes = [], [], []
@@ -55,7 +81,7 @@ def load_denylist(path):
             if not line or line.startswith("#"):
                 continue
             if ":" not in line:
-                raise ValueError("%s:%d: entry without a kind prefix: %r" % (path, lineno, line))
+                raise UnusableDenylist("%s:%d: entry without a kind prefix: %r" % (path, lineno, line))
             kind, value = line.split(":", 1)
             kind = kind.strip().lower()
             if kind == "literal":
@@ -65,9 +91,9 @@ def load_denylist(path):
             elif kind == "regex":
                 regexes.append((value, re.compile(value)))
             else:
-                raise ValueError("%s:%d: unknown kind %r" % (path, lineno, kind))
+                raise UnusableDenylist("%s:%d: unknown kind %r" % (path, lineno, kind))
     if not (literals or words or regexes):
-        raise ValueError("%s holds no usable entries: an empty denylist passes everything" % path)
+        raise UnusableDenylist("%s holds no usable entries: an empty denylist passes everything" % path)
     return literals, words, regexes
 
 
@@ -110,7 +136,7 @@ def load_allowlist(path, reader=None):
             continue
         parts = line.split(None, 2)
         if len(parts) < 3:
-            raise ValueError("allowlist entry needs digest, path and reason: %r" % line)
+            raise UnusableAllowlist("allowlist entry needs digest, path and reason: %r" % line)
         entries[(parts[0], parts[1])] = parts[2]
     return entries
 
@@ -177,6 +203,12 @@ def staged_files():
     out = subprocess.run(
         ["git", "diff", "--cached", "-z", "--name-only", "--diff-filter=ACMR"],
         capture_output=True, text=True, check=True,
+        # git emits raw path bytes under -z. text=True without an encoding
+        # decodes them with the locale codec, so on a non-UTF-8 locale an
+        # accented filename is either mangled -- and then dropped from the
+        # scan without a word -- or raises UnicodeDecodeError. surrogateescape
+        # round-trips whatever git actually wrote.
+        encoding="utf-8", errors="surrogateescape",
     ).stdout
     return [p for p in out.split("\0") if p]
 
@@ -189,8 +221,14 @@ def staged_content(path):
     goes through while both scanners report clean. Verified before the fix
     by committing exactly that.
     """
+    # The denylist is read as UTF-8 (and so is every file on disk), so the
+    # staged blob has to be read the same way. Two codecs on the two sides
+    # of a comparison means an accented client name stops matching itself,
+    # and the run still prints problems=0 -- a fail-open in the one mode the
+    # pre-commit hook uses.
     result = subprocess.run(["git", "show", ":" + path],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True,
+                            encoding="utf-8", errors="replace")
     if result.returncode != 0:
         return None
     return result.stdout
@@ -238,6 +276,13 @@ def run_scan(files, denylist_path, label, reader=None, allowlist_path=None,
         if reader is not None:
             text = reader(path)
             if text is None:
+                # The disk branch below fails closed on an unreadable file.
+                # This one used to skip in silence and not even count the
+                # file, so a blob git could not hand over disappeared from
+                # a run that still reported examined=N problems=0.
+                problems.append((path, 0, "unreadable",
+                                 "staged blob could not be read: not scanned"))
+                examined += 1
                 continue
         else:
             try:
@@ -255,7 +300,14 @@ def run_scan(files, denylist_path, label, reader=None, allowlist_path=None,
                 examined += 1
                 continue
         examined += 1
-        relative = os.path.relpath(os.path.abspath(path), repo_root)
+        # In --staged mode git already hands back a repository-relative
+        # path. Resolving it against the current directory instead made
+        # every allowlist key miss when the hook ran from a subdirectory,
+        # and every approved exception then read as unregistered.
+        if reader is not None:
+            relative = os.path.normpath(path)
+        else:
+            relative = os.path.relpath(os.path.abspath(path), repo_root)
         hits, allowed, unregistered = scan_text(
             text, literals, words, regexes, allowlist, relative)
         allowed_total += len(allowed)
@@ -267,9 +319,9 @@ def run_scan(files, denylist_path, label, reader=None, allowlist_path=None,
     print("%-22s examined=%d rules=%d problems=%d allowed=%d"
           % (label, examined, rules, len(problems), allowed_total))
     for path, lineno, rule, matched in problems:
-        print("   %s:%d  %s  ->  %s"
-              % (path, lineno, redact_rule(rule, show_matches),
-                 redact(matched, show_matches)))
+        say("   %s:%d  %s  ->  %s"
+            % (path, lineno, redact_rule(rule, show_matches),
+               redact(matched, show_matches)))
     return examined, problems
 
 
@@ -436,6 +488,24 @@ def run_fixture():
             print("FAIL  an unregistered scan:allow slipped through")
             conforms = False
 
+        # A finding the terminal cannot encode still has to reach the
+        # operator. This plants an ASCII stdout under a match holding the
+        # kind of accented name the denylist is made of.
+        original = sys.stdout
+        try:
+            sys.stdout = io.TextIOWrapper(io.BytesIO(), encoding="ascii")
+            say("   nota.md:1  literal:<redacted>  ->  c\u2026\u00e0 <15 chars>")
+            survived = True
+        except UnicodeEncodeError:
+            survived = False
+        finally:
+            sys.stdout = original
+        if survived:
+            print("ok    a finding prints even where the terminal cannot encode it")
+        else:
+            print("FAIL  a finding killed the report on an ASCII terminal")
+            conforms = False
+
         if not conforms:
             print("\nfixture did not behave as declared: the scanner cannot be trusted")
             return 3
@@ -445,7 +515,7 @@ def run_fixture():
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__ and __doc__.splitlines()[0])
     parser.add_argument("paths", nargs="*", default=None)
     parser.add_argument("--denylist", default=None)
     parser.add_argument("--show-matches", action="store_true",
@@ -505,7 +575,8 @@ def main():
                 dirnames[:] = [d for d in dirnames
                                if d not in (".git", "__pycache__", ".venv")]
                 candidates.extend(os.path.join(base, n) for n in names)
-        dropped = [p for p in candidates if p not in set(files)]
+        kept = set(files)
+        dropped = [p for p in candidates if p not in kept]
         if dropped:
             print("%-22s %d file(s) dropped by suffix, not scanned:"
                   % ("secret-scan", len(dropped)))
@@ -524,8 +595,17 @@ def main():
             allowlist_path=(args.allowlist
                             or ("tools/allowlist.txt" if args.staged
                                 else os.path.join(here, "allowlist.txt"))))
-    except ValueError as error:
+    except UnusableDenylist as error:
         print("unusable denylist: %s" % error)
+        return 2
+    except UnusableAllowlist as error:
+        # This used to print "unusable denylist" as well, because the guard
+        # covered the whole scan and UnicodeDecodeError is a ValueError too:
+        # the operator was sent to fix a file that was fine.
+        print("unusable allowlist: %s" % error)
+        return 2
+    except UnicodeDecodeError as error:
+        print("a staged blob is not valid UTF-8 and was not scanned: %s" % error)
         return 2
     if examined == 0:
         print("examined zero files: that is a fault, not a clean tree")

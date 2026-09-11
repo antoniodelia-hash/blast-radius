@@ -8,29 +8,48 @@
 # recognise, which is the same as having no hook on the machines where that
 # happened.
 root=$(git rev-parse --show-toplevel) || exit 1
+# Run from the top of the work tree whatever the caller did. The scanner
+# resolves its staged-mode allowlist as a path relative to the working
+# directory, so a hook started from a subdirectory -- by hand, or by a GUI
+# client that does not chdir -- found no register, and every approved
+# exception then read as unregistered.
+cd "$root" || exit 1
 fail=0
 
 python3 "$root/tools/secret_scan.py" --staged
-case $? in
+scan_code=$?
+case $scan_code in
     0) ;;
     1) echo "blocked: the lines above name something the repo must not name."
        fail=1 ;;
     2) echo "blocked: the scanner examined nothing, or has no denylist."
        echo "a silent check is indistinguishable from a broken one."
        fail=1 ;;
-    *) code=$?
-       echo "blocked: the client scanner returned an unexpected exit code."
+    # The branch that covers python3 missing (127), the scanner gone, an
+    # interpreter crash or a signal. It used to assign the code and print
+    # none of it, leaving the developer with nothing to act on.
+    *) echo "blocked: the client scanner returned an unexpected exit code ($scan_code)."
        echo "an outcome nobody planned for is not a pass."
        fail=1 ;;
 esac
 
 if command -v gitleaks >/dev/null 2>&1; then
+    # The invocation is version-sensitive: the subcommand, the positional
+    # path and the flags all moved across v8.18 -> v8.19 -> v8.20. An
+    # unknown-flag error exits non-zero, lands in the catch-all branch, and
+    # blocks every commit clean or not -- which sends people straight to
+    # --no-verify. Naming the version in that message is what tells the two
+    # apart, since some releases also use exit 1 for a fatal error.
+    gitleaks_version=$(gitleaks version 2>/dev/null || echo "unknown")
     gitleaks git --staged --redact --no-banner "$root"
-    case $? in
+    leaks_code=$?
+    case $leaks_code in
         0) ;;
         1) echo "blocked: gitleaks found a credential in what you are committing."
+           echo "if the output above names no finding, gitleaks $gitleaks_version may"
+           echo "have failed instead: check with 'gitleaks git --staged $root'."
            fail=1 ;;
-        *) echo "blocked: gitleaks did not run to completion."
+        *) echo "blocked: gitleaks $gitleaks_version did not run to completion (exit $leaks_code)."
            fail=1 ;;
     esac
 else

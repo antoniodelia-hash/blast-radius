@@ -1,7 +1,26 @@
 # Local-only denylist: holds the real identifying strings. Never commit.
-denylist.local.txt
-denylist.local.*
-*.local.txt
+#
+# The rules cover the idea rather than one spelling. secret_scan.py takes
+# --denylist with any path, and its canonical default sits outside the
+# repository, so nothing stopped a filled-in denylist from being kept in
+# the tree under a different name -- denylist.txt, secrets.txt,
+# tools/denylist.local -- and git add -A would have staged it. The one
+# tracked template is exempted by name.
+#
+# A rule here does nothing about a file already tracked. To check:
+#   git ls-files | grep -Ei 'denylist|\.local\.'
+denylist*
+!tools/denylist.example.txt
+secrets.txt
+.env
+.env.*
+
+# Local overrides of a tracked register, alongside the register itself.
+# *.local.txt unanchored used to hide any such file at any depth, including
+# ones the tools read: a file that exists on one machine, passes there, and
+# is simply absent after a clone.
+allowlist.local.txt
+tools/allowlist.local.txt
 
 # Scratch and OS noise
 __pycache__/
