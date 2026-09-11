@@ -53,15 +53,21 @@ elif [ "$import_status" != "0" ]; then
     failed=1
 fi
 
-if [ -n "$source_text" ]; then
+# Test the file, not the variable. source_text is given a default above, so
+# -n was true in every run and the skip branch below was unreachable: in a
+# checkout without third_party/ the citation check exited 2 and the suite
+# went red over an optional input. echo "\n" is implementation-defined under
+# /bin/sh too, and prints a literal backslash-n on dash.
+if [ -f "$source_text" ]; then
     run "quotations against the source" \
         python3 "$root/tools/citation_check.py" "$source_text"
 else
-    echo "\n=== quotations against the source"
-    echo "skipped: source text not found at $source_text"
-    echo "here, so this check runs where the extracted text is available:"
-    echo "  pdftotext -layout owasp-agentic-2026.pdf owasp.txt"
-    echo "  tools/run_all_checks.sh owasp.txt"
+    printf '\n=== %s\n' "quotations against the source"
+    echo "skipped: no source text at $source_text"
+    echo "the document travels with the repository; to refresh it from a new"
+    echo "revision of the PDF:"
+    echo "  pdftotext -layout owasp.pdf third_party/owasp-agentic-top10-2026.txt"
+    echo "  tools/run_all_checks.sh"
 fi
 
 exit $failed

@@ -36,6 +36,20 @@ SEARCH_DIRS = ("controls", "tools")
 
 FIXTURE_FOUND_ITS_FAULT = 86
 
+# A fixture seeds its own data and answers nobody, so it has no reason to
+# take this long. Without a limit, one fixture waiting on a prompt or a
+# socket holds the whole suite open for as long as CI allows.
+FIXTURE_TIMEOUT_SECONDS = 60
+
+# A traceback at the start of a line, which is where Python puts one. The
+# bare substring also matched checks that scan and echo untrusted text --
+# job output, staged files -- so a fixture that had done its job was
+# reported as having crashed on the strength of what it was quoting.
+TRACEBACK_LINE = re.compile(r"^Traceback \(most recent call last\):$", re.MULTILINE)
+
+# The summary line every check prints, which is the authoritative one.
+SUMMARY = re.compile(r"examined=(\d+)")
+
 
 def find_checks():
     """Every .py under the search directories, at any depth.
@@ -51,8 +65,21 @@ def find_checks():
         for base, dirs, names in os.walk(full):
             dirs[:] = [d for d in dirs if d not in ("__pycache__", "tests")]
             for name in sorted(names):
-                if name.endswith(".py") and not name.startswith("test_"):
-                    found.append(os.path.join(base, name))
+                if not name.endswith(".py") or name.startswith("test_"):
+                    continue
+                path = os.path.join(base, name)
+                # A check is a file that offers --fixture. Running every .py
+                # as a check would run a helper module as a script: a
+                # definitions-only file exits 0 and gets reported as "this
+                # check cannot fail", which points at the wrong cause and
+                # executes import-time side effects on the way.
+                try:
+                    with open(path, encoding="utf-8") as handle:
+                        if "--fixture" not in handle.read():
+                            continue
+                except (OSError, UnicodeDecodeError):
+                    continue
+                found.append(path)
     return sorted(found)
 
 
@@ -62,27 +89,42 @@ def main():
 
     for path in checks:
         relative = os.path.relpath(path, REPO)
-        result = subprocess.run(
-            [sys.executable, path, "--fixture"],
-            capture_output=True, text=True,
-        )
+        try:
+            result = subprocess.run(
+                [sys.executable, path, "--fixture"],
+                capture_output=True, text=True,
+                # Pinned rather than locale-dependent, or a fixture holding
+                # an accented name dies in the decoder under LC_ALL=C and
+                # the exception leaves main() as exit 1 -- which is also
+                # "a check failed", the ambiguity this file removes.
+                encoding="utf-8", errors="replace",
+                stdin=subprocess.DEVNULL, timeout=FIXTURE_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            failures.append((relative, "--fixture did not finish in %ds"
+                             % FIXTURE_TIMEOUT_SECONDS))
+            continue
         code = result.returncode
-        crashed = "Traceback (most recent call last)" in result.stderr
-        output = result.stdout + result.stderr
+        crashed = bool(TRACEBACK_LINE.search(result.stderr or ""))
         # 86 alone is a password a hollow fixture can say. A fixture that
         # ran has also declared how much it examined, so the contract asks
         # for the evidence rather than the announcement.
-        declared = re.search(r"examined=(\d+)", output)
-        examined_zero = bool(declared) and declared.group(1) == "0"
+        #
+        # The last declaration on stdout, not the first anywhere: several
+        # checks print "examined=0" on an early path before the real
+        # summary, and stderr can carry a quoted one.
+        declarations = SUMMARY.findall(result.stdout or "")
+        declared = declarations[-1] if declarations else None
+        examined_zero = declared == "0"
 
         if code == FIXTURE_FOUND_ITS_FAULT and not crashed and declared and not examined_zero:
             print("ok    %-28s --fixture found its planted fault (examined=%s)"
-                  % (relative, declared.group(1)))
+                  % (relative, declared))
         elif code == FIXTURE_FOUND_ITS_FAULT and not crashed and not declared:
             failures.append((relative, "--fixture exited %d without declaring what it "
                                        "examined: 86 is not evidence"
                              % FIXTURE_FOUND_ITS_FAULT))
-        elif code == FIXTURE_FOUND_ITS_FAULT and examined_zero:
+        elif code == FIXTURE_FOUND_ITS_FAULT and examined_zero and not crashed:
             failures.append((relative, "--fixture exited %d having examined nothing"
                              % FIXTURE_FOUND_ITS_FAULT))
         elif crashed:
